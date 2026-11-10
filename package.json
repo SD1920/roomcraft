@@ -4,7 +4,7 @@
   "type": "module",
   "description": "roomcraft: scan a room with your phone, design it in 2D/3D, furnish it with AI",
   "scripts": {
-    "build": "npm --prefix frontend ci && npm --prefix frontend run build",
+    "build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev"
   },
