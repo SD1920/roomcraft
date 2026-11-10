@@ -2,7 +2,7 @@
 
 **Scan a real room with your phone, design it in 2D and 3D, and furnish it with an AI assistant.**
 
-**Live demo:** LIVE_URL. Press **✨ Try the demo** for a private sample account with three furnished rooms, no sign-up needed.
+**Live demo:** https://roomcraft-ivory.vercel.app. Press **✨ Try the demo** for a private sample account with three furnished rooms, no sign-up needed.
 
 ![3D editor](docs/images/editor_3d_desktop.jpg)
 
