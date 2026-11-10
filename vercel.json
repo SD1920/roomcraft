@@ -3,6 +3,9 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
+  "regions": [
+    "sin1"
+  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
@@ -10,7 +13,13 @@
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }
