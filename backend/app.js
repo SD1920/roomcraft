@@ -42,11 +42,27 @@ app.use(cors((req, cb) => {
 
 // ── Scanner "Guess from camera": one camera frame -> Gemini (key stays here)
 // Before the 1 MB JSON limit below: a camera frame can be a few MB.
+// The fast model first (about 2 s); every attempt is capped so the whole call
+// ends well inside the serverless function's 60 s limit even when Gemini is busy.
+const DETECT_BUDGET_MS = 45_000
+const DETECT_ATTEMPT_MS = 15_000
 app.post('/api/detect', detectLimiter, express.json({ limit: '4mb' }), async (req, res) => {
+  const deadline = Date.now() + DETECT_BUDGET_MS
+  const timedFetch = (url, opts) => {
+    const left = deadline - Date.now()
+    if (left < 2_000) return Promise.reject(Object.assign(new Error('Gemini took too long. Try Detect again in a minute.'), { status: 504 }))
+    return fetch(url, { ...opts, signal: AbortSignal.timeout(Math.min(DETECT_ATTEMPT_MS, left)) })
+  }
   try {
-    res.json(await handleDetect(req.body, { apiKey: process.env.GEMINI_API_KEY }))
+    res.json(await handleDetect(req.body, {
+      apiKey: process.env.GEMINI_API_KEY,
+      model: 'gemini-flash-lite-latest',
+      fallbackModels: ['gemini-flash-latest'],
+      fetch: timedFetch,
+    }))
   } catch (e) {
-    res.status(e.status || 500).json({ error: e.message })
+    const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError'
+    res.status(timedOut ? 504 : e.status || 500).json({ error: timedOut ? 'Gemini took too long. Try Detect again in a minute.' : e.message })
   }
 })
 
