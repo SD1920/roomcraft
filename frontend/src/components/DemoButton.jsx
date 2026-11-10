@@ -31,8 +31,9 @@ export default function DemoButton({ className = '' }) {
   return (
     <span className="inline-flex flex-col items-stretch gap-1">
       <button type="button" onClick={start} disabled={busy}
-        className={`px-6 py-3 rounded-lg border-2 border-accent text-accent font-medium hover:bg-accent/10 transition disabled:opacity-50 ${className}`}>
-        {busy ? 'Starting the demo…' : '✨ Try the demo, no sign-up'}
+        title="A private sample account with three furnished rooms, no sign-up"
+        className={`whitespace-nowrap px-6 py-3 rounded-lg border-2 border-accent text-accent font-medium hover:bg-accent/10 transition disabled:opacity-50 ${className}`}>
+        {busy ? 'Starting…' : '✨ Try the demo'}
       </button>
       {error && <span className="text-xs text-red-500">{error}</span>}
     </span>

@@ -413,8 +413,9 @@ export default function Editor() {
         const design = res.data.design
         setRoomData({
           roomType: design.room_type   || '',
-          width:    String(design.room_width  || ''),
-          length:   String(design.room_length || ''),
+          // the database keeps 4 decimals (14.0000): show 14, keep 12.3456
+          width:    design.room_width  ? String(+Number(design.room_width).toFixed(4))  : '',
+          length:   design.room_length ? String(+Number(design.room_length).toFixed(4)) : '',
           height:   String(Number(design.wall_height) || 8),
           style:    design.style       || '',
         })
