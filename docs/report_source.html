@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>roomcraft: Project Report</title>
+<!--
+  Source of RoomCraft_Project_Report.pdf.
+  To change it (e.g. the names on the cover): edit this file, open it in Chrome,
+  Print -> Save as PDF, paper A4, margins Default, "Headers and footers" OFF,
+  "Background graphics" ON.
+-->
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 20mm 18mm;
+    @bottom-center { content: counter(page); font: 9pt "Segoe UI", Arial, sans-serif; color: #8a7f74; }
+  }
+  @page :first { @bottom-center { content: none; } }
+
+  :root {
+    --ink: #2b251f;
+    --muted: #6d6358;
+    --accent: #9a5234;
+    --accent-soft: #f3e7df;
+    --line: #ddd3c7;
+    --sage: #4f5d42;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    font: 10.5pt/1.55 "Segoe UI", Calibri, Arial, sans-serif;
+    color: var(--ink);
+    background: #fff;
+  }
+  h1, h2, h3 { font-family: Cambria, "Segoe UI", serif; color: var(--ink); line-height: 1.25; }
+  h1 { font-size: 22pt; margin: 0 0 6mm; }
+  h2 { font-size: 15pt; margin: 9mm 0 3mm; color: var(--accent); break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 5mm 0 1.5mm; break-after: avoid; }
+  p { margin: 0 0 3mm; text-align: justify; }
+  ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin: 0 0 1.2mm; }
+  code { font: 9pt Consolas, "Courier New", monospace; background: #f4efea; padding: 0 3px; border-radius: 3px; }
+  .chapter { break-before: page; }
+  .muted { color: var(--muted); }
+  .small { font-size: 9pt; }
+
+  /* cover */
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover .brand { font: 700 34pt Cambria, serif; color: var(--accent); letter-spacing: -0.5pt; margin: 18mm 0 2mm; }
+  .cover .tag { font-size: 15pt; color: var(--ink); margin: 0 0 10mm; }
+  .cover .kind { display: inline-block; font-size: 10pt; letter-spacing: 1.5pt; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); padding: 1.5mm 4mm; border-radius: 20px; }
+  .cover img { width: 100%; border-radius: 6px; border: 1px solid var(--line); margin-top: 8mm; }
+  .cover table { width: 100%; border-collapse: collapse; font-size: 10.5pt; }
+  .cover td { padding: 1.4mm 0; vertical-align: top; }
+  .cover td:first-child { width: 42mm; color: var(--muted); }
+
+  /* figures and tables */
+  figure { margin: 4mm 0 5mm; break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 4px; }
+  figcaption { font-size: 9pt; color: var(--muted); margin-top: 1.5mm; }
+  .row { display: flex; gap: 5mm; align-items: flex-start; justify-content: center; }
+  .row figure { flex: 1; margin: 2mm 0 4mm; }
+  table.grid { width: 100%; border-collapse: collapse; margin: 2mm 0 5mm; font-size: 9.5pt; break-inside: avoid; }
+  table.grid th { text-align: left; background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+  table.grid th, table.grid td { border: 1px solid var(--line); padding: 1.6mm 2.4mm; vertical-align: top; }
+  .callout { background: var(--accent-soft); border-radius: 6px; padding: 3mm 4mm; margin: 3mm 0 5mm; break-inside: avoid; }
+  .stats { display: flex; gap: 4mm; margin: 3mm 0 6mm; break-inside: avoid; }
+  .stat { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 3mm; text-align: center; }
+  .stat b { display: block; font: 700 20pt Cambria, serif; color: var(--accent); }
+  .stat span { font-size: 8.5pt; color: var(--muted); }
+  .toc { list-style: none; padding: 0; margin: 0; }
+  .toc li { display: flex; gap: 3mm; padding: 0.9mm 0; margin: 0; border-bottom: 1px dotted var(--line); font-size: 10pt; }
+  .toc li span:first-child { width: 9mm; color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════ COVER ════════════════════════════ -->
+<section class="cover">
+  <div>
+    <span class="kind">Project Report</span>
+    <div class="brand">roomcraft</div>
+    <div class="tag">An AI interior designer: scan a real room with a phone, design it in 2D and 3D, and furnish it with an AI assistant</div>
+    <img src="images/editor_3d_desktop.jpg" alt="The roomcraft 3D editor showing a furnished living room">
+  </div>
+  <table>
+    <tr><td>Team members</td><td>[Team member 1, Roll no.]<br>[Team member 2, Roll no.]<br>[Team member 3, Roll no.]<br>[Team member 4, Roll no.]</td></tr>
+    <tr><td>Guide</td><td>[Guide name, designation]</td></tr>
+    <tr><td>Department</td><td>[Department]</td></tr>
+    <tr><td>Institution</td><td>[College / University]</td></tr>
+    <tr><td>Academic year</td><td>[2026–27]</td></tr>
+    <tr><td>Date</td><td>November 2026</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════════ ABSTRACT + CONTENTS ════════════════════════════ -->
+<section class="chapter">
+  <h1>Abstract</h1>
+  <p>Planning a room usually means a tape measure, graph paper and a lot of guessing about whether the furniture
+  will fit. roomcraft is a web application that removes those steps. A user can measure a real room with an Android
+  phone's camera in the browser, open it as an editable floor plan and 3D model, and furnish it by hand or by asking
+  an AI assistant in plain English. Every design is saved to the user's account and can be exported as a labelled
+  PDF floor plan.</p>
+  <p>The system has four parts. A <b>React + three.js frontend</b> provides the dashboard, the 2D floor plan and the 3D
+  room editor. An <b>Express + PostgreSQL backend</b> handles accounts (email OTP sign-up, JWT login), profiles and saved
+  designs. A <b>WebXR room scanner</b> measures wall positions, ceiling height, doors, windows and furniture with the
+  phone's AR tracking. An <b>AI layer</b> built on Google Gemini turns plain-English requests into furnished rooms and suggestions, while the
+  app itself places every piece with deterministic collision rules, so the AI never produces overlapping or
+  out-of-bounds furniture.</p>
+  <p>The scanner measured a ceiling at 2.72 m against a tape reading of 2.74 m, and straight lines on an open floor
+  to within 1–2 cm. Its geometry is covered by 306 automated tests. The editor supports 14 room types, 86 furniture
+  types, any furniture angle, connected rooms, and works on phones as well as laptops.</p>
+
+  <h2 style="margin-top:7mm">Contents</h2>
+  <ul class="toc">
+    <li><span>1</span><span>Introduction</span></li>
+    <li><span>2</span><span>System overview and architecture</span></li>
+    <li><span>3</span><span>Technology stack</span></li>
+    <li><span>4</span><span>Accounts, profile and dashboard</span></li>
+    <li><span>5</span><span>Room editor: 2D plan and 3D view</span></li>
+    <li><span>6</span><span>AR room scanner</span></li>
+    <li><span>7</span><span>AI assistant and camera detection</span></li>
+    <li><span>8</span><span>Floor plan export</span></li>
+    <li><span>9</span><span>Data model and API</span></li>
+    <li><span>10</span><span>User interface: themes, phones, tutorial</span></li>
+    <li><span>11</span><span>Security</span></li>
+    <li><span>12</span><span>Testing and results</span></li>
+    <li><span>13</span><span>Limitations and future work</span></li>
+    <li><span>14</span><span>Conclusion</span></li>
+    <li><span></span><span>References</span></li>
+  </ul>
+</section>
+
+<!-- ════════════════════════════ 1 INTRODUCTION ════════════════════════════ -->
+<section class="chapter">
+  <h1>1. Introduction</h1>
+  <h3>1.1 Problem</h3>
+  <p>Anyone furnishing a room faces the same questions: how big is the room really, will this bed fit next to the
+  wardrobe, does the door still open, and what will it look like? Professional design tools answer these but expect
+  exact measurements and hours of learning. Simple room planners are easy to use but start from an empty box that
+  the user has to measure and draw first, and they leave the design decisions to the user.</p>
+
+  <h3>1.2 Objectives</h3>
+  <ol>
+    <li>Measure a real room (size, ceiling height, doors, windows, furniture) with a phone, without installing an app.</li>
+    <li>Edit the room as a 2D floor plan and a 3D model, with furniture that cannot overlap, leave the room or block a door.</li>
+    <li>Let users describe a room or a change in plain English and apply AI suggestions with one tap, and undo them.</li>
+    <li>Keep every design in the user's account, and export it as a labelled PDF floor plan.</li>
+    <li>Work equally well on a phone and a laptop, in light and dark themes.</li>
+  </ol>
+
+  <h3>1.3 Scope</h3>
+  <p>roomcraft covers residential and institutional rooms (14 types, from bedroom and kitchen to classroom and
+  computer lab), rectangular rooms joined through doors into multi-room layouts, and a catalogue of 86 furniture
+  types in four styles. The scanner runs on Android phones with ARCore in Chrome; iPhones are out of scope because
+  Safari does not offer WebXR augmented reality.</p>
+
+  <h3>1.4 Report structure</h3>
+  <p>Chapter 2 gives the architecture and chapter 3 the technologies. Chapters 4 to 8 describe each module in turn.
+  Chapters 9 to 11 cover the data model, user interface and security, chapter 12 the testing and results, and
+  chapters 13 and 14 the limitations, future work and conclusion.</p>
+</section>
+
+<!-- ════════════════════════════ 2 ARCHITECTURE ════════════════════════════ -->
+<section class="chapter">
+  <h1>2. System overview and architecture</h1>
+  <p>roomcraft is a client–server web application. The browser runs two pages from the same frontend: the main React
+  app (<code>index.html</code>) and the AR room scanner (<code>scan.html</code>). Both talk only to the frontend's own
+  address; API calls under <code>/api</code> and uploaded files under <code>/uploads</code> are passed on to the
+  Express backend, which stores everything in PostgreSQL. Calls to Google Gemini are made from the server side, so
+  the API key never reaches the browser.</p>
+
+  <figure>
+    <svg viewBox="0 0 680 330" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="12">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6d6358"/></marker></defs>
+      <!-- clients -->
+      <rect x="10" y="20" width="150" height="70" rx="10" fill="#f3e7df" stroke="#9a5234"/>
+      <text x="85" y="48" text-anchor="middle" font-weight="600">Laptop browser</text>
+      <text x="85" y="66" text-anchor="middle" fill="#6d6358">dashboard, 2D / 3D editor</text>
+      <rect x="10" y="120" width="150" height="70" rx="10" fill="#f3e7df" stroke="#9a5234"/>
+      <text x="85" y="148" text-anchor="middle" font-weight="600">Android phone</text>
+      <text x="85" y="166" text-anchor="middle" fill="#6d6358">Chrome + ARCore (WebXR)</text>
+      <!-- frontend -->
+      <rect x="230" y="10" width="200" height="190" rx="10" fill="#fff" stroke="#2b251f"/>
+      <text x="330" y="34" text-anchor="middle" font-weight="700">Frontend (Vite, HTTPS)</text>
+      <rect x="248" y="48" width="164" height="32" rx="6" fill="#f4efea"/><text x="330" y="69" text-anchor="middle">React app  /  index.html</text>
+      <rect x="248" y="88" width="164" height="32" rx="6" fill="#f4efea"/><text x="330" y="109" text-anchor="middle">AR scanner  /  scan.html</text>
+      <rect x="248" y="128" width="164" height="32" rx="6" fill="#f4efea"/><text x="330" y="149" text-anchor="middle">/api/detect  (camera guess)</text>
+      <text x="330" y="186" text-anchor="middle" fill="#6d6358">proxies /api and /uploads</text>
+      <!-- backend -->
+      <rect x="500" y="10" width="170" height="190" rx="10" fill="#fff" stroke="#2b251f"/>
+      <text x="585" y="34" text-anchor="middle" font-weight="700">Backend (Express)</text>
+      <text x="585" y="62" text-anchor="middle">auth: OTP + JWT</text>
+      <text x="585" y="84" text-anchor="middle">profile + avatar upload</text>
+      <text x="585" y="106" text-anchor="middle">designs (CRUD)</text>
+      <text x="585" y="128" text-anchor="middle">AI assistant</text>
+      <text x="585" y="150" text-anchor="middle">rate limits</text>
+      <!-- data -->
+      <rect x="500" y="250" width="170" height="60" rx="10" fill="#e9eee4" stroke="#4f5d42"/>
+      <text x="585" y="276" text-anchor="middle" font-weight="600">PostgreSQL</text>
+      <text x="585" y="294" text-anchor="middle" fill="#6d6358">users, otps, designs, onboarding</text>
+      <rect x="230" y="250" width="200" height="60" rx="10" fill="#e9eee4" stroke="#4f5d42"/>
+      <text x="330" y="276" text-anchor="middle" font-weight="600">Google Gemini API</text>
+      <text x="330" y="294" text-anchor="middle" fill="#6d6358">room plans, chat, camera guess</text>
+      <!-- arrows -->
+      <line x1="160" y1="55" x2="228" y2="70" stroke="#6d6358" stroke-width="1.5" marker-end="url(#ar)"/>
+      <line x1="160" y1="155" x2="228" y2="110" stroke="#6d6358" stroke-width="1.5" marker-end="url(#ar)"/>
+      <line x1="430" y1="105" x2="498" y2="105" stroke="#6d6358" stroke-width="1.5" marker-end="url(#ar)"/>
+      <line x1="585" y1="200" x2="585" y2="248" stroke="#6d6358" stroke-width="1.5" marker-end="url(#ar)"/>
+      <line x1="540" y1="200" x2="420" y2="250" stroke="#6d6358" stroke-width="1.5" marker-end="url(#ar)"/>
+      <line x1="330" y1="200" x2="330" y2="248" stroke="#6d6358" stroke-width="1.5" marker-end="url(#ar)"/>
+    </svg>
+    <figcaption>Figure 2.1: How the parts of roomcraft talk to each other</figcaption>
+  </figure>
+
+  <h3>2.1 A typical session</h3>
+  <ol>
+    <li>The user signs up with an emailed 5-digit code and answers a few onboarding questions.</li>
+    <li>On the phone, <b>Scan my room</b> opens the scanner. The user taps the corners of each wall, then the doors,
+    windows and furniture, and saves the room to their account.</li>
+    <li>On the laptop the scanned room appears in <b>My Designs</b>. The editor shows it as a 2D plan and a 3D model
+    with its real size, ceiling height, doors and furniture.</li>
+    <li>The user rearranges furniture, changes colours and floors, adds connected rooms, or asks the AI assistant
+    ("furnish this as a cozy study") and applies its suggestions.</li>
+    <li>The design is saved and can be exported as a PDF floor plan.</li>
+  </ol>
+
+  <h3>2.2 Design principles</h3>
+  <ul>
+    <li><b>The app places, the AI chooses.</b> The language model only picks room types, furniture and colours from
+    the app's own catalogue; positions always come from the app's placement rules.</li>
+    <li><b>One source of truth for geometry.</b> All lengths are in feet, the room is centred on the origin, and the
+    same collision rules are used by the editor, the AI placer and the scanner's tidy-up step.</li>
+    <li><b>Keys stay on the server.</b> The database password, JWT secret and Gemini key live only in server-side
+    environment files.</li>
+  </ul>
+</section>
+
+<!-- ════════════════════════════ 3 TECH STACK ════════════════════════════ -->
+<section class="chapter">
+  <h1>3. Technology stack</h1>
+  <table class="grid">
+    <tr><th style="width:24%">Layer</th><th style="width:34%">Technology</th><th>Used for</th></tr>
+    <tr><td>Frontend framework</td><td>React 19, React Router, Vite 8</td><td>Pages, routing, dev server with HTTPS for phones, production build</td></tr>
+    <tr><td>Styling</td><td>Tailwind CSS v4</td><td>Light and dark themes from shared colour tokens, responsive layouts</td></tr>
+    <tr><td>3D graphics</td><td>three.js, @react-three/fiber, drei</td><td>3D room, furniture models, orbit camera, dragging pieces in 3D</td></tr>
+    <tr><td>2D plan</td><td>SVG rendered by React</td><td>Scalable floor plan, labels, size lines; also reused for PDF export</td></tr>
+    <tr><td>PDF</td><td>jsPDF</td><td>A4 floor-plan export</td></tr>
+    <tr><td>Backend</td><td>Node.js, Express</td><td>REST API, file uploads (multer), rate limiting</td></tr>
+    <tr><td>Database</td><td>PostgreSQL 16 (Docker locally)</td><td>Users, one-time codes, onboarding answers, designs (JSON columns)</td></tr>
+    <tr><td>Authentication</td><td>JWT, bcrypt, email OTP (Resend)</td><td>Sign-up verification, login, password reset</td></tr>
+    <tr><td>AR scanning</td><td>WebXR Device API (immersive-ar, hit-test, anchors, DOM overlay)</td><td>Measuring the room with the phone camera in Chrome</td></tr>
+    <tr><td>On-device vision</td><td>MediaPipe Tasks Vision (EfficientDet-Lite0)</td><td>Spotting furniture in the camera view during a scan</td></tr>
+    <tr><td>Generative AI</td><td>Google Gemini (flash-lite, flash) with JSON schemas</td><td>Chat suggestions, furnishing a room from a request, naming a piece from a photo</td></tr>
+    <tr><td>Testing and quality</td><td>Vitest, oxlint</td><td>306 scanner tests; lint across the frontend</td></tr>
+  </table>
+  <div class="stats">
+    <div class="stat"><b>~19,000</b><span>lines of code</span></div>
+    <div class="stat"><b>19</b><span>API routes</span></div>
+    <div class="stat"><b>4</b><span>database tables</span></div>
+    <div class="stat"><b>2</b><span>web pages: app and scanner</span></div>
+  </div>
+  <p class="small muted">Code size counts the frontend (about 11,700 lines), the backend (about 1,900) and the scanner
+  (about 5,300), excluding tests and third-party libraries.</p>
+</section>
+
+<!-- ════════════════════════════ 4 ACCOUNTS ════════════════════════════ -->
+<section class="chapter">
+  <h1>4. Accounts, profile and dashboard</h1>
+  <div class="row">
+    <div style="flex:1.6">
+      <h3>4.1 Sign-up and login</h3>
+      <p>Registration asks for a name, email and password. The backend stores a bcrypt hash of the password and emails a
+      5-digit one-time code; the account becomes active only after the code is entered. Login returns a JSON Web Token
+      that the frontend keeps in local storage and attaches to every request. A request that comes back as unauthorised
+      returns the user to the login page. Forgotten passwords use the same code-by-email flow.</p>
+      <h3>4.2 Onboarding and profile</h3>
+      <p>First-time users answer short onboarding questions. The profile page lets them change their name, profession
+      and password and upload a profile photo, which is stored on the server and shown in a circle in the dashboard's
+      top bar.</p>
+      <h3>4.3 Dashboard</h3>
+      <p><b>My Designs</b> lists the saved designs as cards with the room type, size and last update. From here the user
+      opens a design, starts a new one, exports a design's floor plan, deletes one, or starts a phone scan with
+      <b>Scan my room</b>. On a phone the top bar shortens to icons and the action buttons sit side by side.</p>
+    </div>
+    <figure style="flex:1">
+      <img src="images/dashboard_phone.jpg" alt="Dashboard on a phone" style="max-height:120mm">
+      <figcaption>Figure 4.1: Dashboard on a phone (test account)</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ════════════════════════════ 5 EDITOR ════════════════════════════ -->
+<section class="chapter">
+  <h1>5. Room editor: 2D plan and 3D view</h1>
+  <p>The editor is where a room is built and furnished. A room panel on the left sets the room type, width, length,
+  height and style; <b>Generate room</b> fills it with a typical furniture set for that room type, placed by the
+  app's rules. The same room can be viewed as a flat 2D plan or a 3D model, and every change in one shows in the other.</p>
+
+  <figure>
+    <img src="images/editor_3d_desktop.jpg" alt="3D view of a generated living room" style="width:88%">
+    <figcaption>Figure 5.1: 3D view of a generated 14 × 16 ft living room</figcaption>
+  </figure>
+
+  <h3>5.1 Working with furniture</h3>
+  <ul>
+    <li><b>Move</b> by dragging in either view. A piece that would hit another piece, a wall or a door's swing stops at
+    the last free position instead of overlapping.</li>
+    <li><b>Rotate</b> to any angle with a slider or 15° steps; the piece snaps straight near 0°, 90°, 180° and 270°, and
+    an angle that would cause a collision is refused.</li>
+    <li><b>Resize</b> width, depth and height to any number of decimals.</li>
+    <li><b>Doors and windows</b> slide along their wall, change size, and doors swing open, flip hinge and open in or out.</li>
+    <li><b>Look</b>: wall colours per wall (with AI-suggested palettes), seven floor materials, four styles.</li>
+  </ul>
+
+  <h3>5.2 Placement rules</h3>
+  <p>All placement goes through one set of rules (<code>utils/layout.js</code>), used by the editor, the room
+  generator, the AI placer and the scanner's tidy-up:</p>
+  <table class="grid">
+    <tr><th style="width:32%">Rule</th><th>What it does</th></tr>
+    <tr><td>Inside the room</td><td>Every piece's rotated footprint must stay inside the inner faces of the walls.</td></tr>
+    <tr><td>No overlap</td><td>Two pieces keep at least 0.05 ft apart (rotated rectangles are compared exactly).</td></tr>
+    <tr><td>Wall clearance</td><td>A piece against a wall sits 0.13 ft from the wall's centre line, flush with its inner face.</td></tr>
+    <tr><td>Door swing kept clear</td><td>Each door has a keep-out area the size of its swing; no floor piece may enter it.</td></tr>
+    <tr><td>Openings kept clear</td><td>Wall-mounted pieces (TV, painting, shelf) cannot cover a door or window, doors and windows cannot overlap each other, and a window AC must sit inside a window frame.</td></tr>
+    <tr><td>Free-spot search</td><td>When a new piece is added, the app searches along the walls and then the floor for the nearest legal spot.</td></tr>
+  </table>
+
+  <h3>5.3 The 2D floor plan</h3>
+  <p>The plan is drawn as SVG, so it stays sharp at any zoom. Every piece is labelled inside its own box. Labels run
+  along a piece's long side, use one or two lines, and slide or shrink so that no two labels touch, including when a
+  wall item such as a cabinet hangs over a washing machine. Every room carries its width and length as size lines on
+  a side with no neighbouring room. Zoom buttons, a fit-to-room button and pinch or scroll zoom are provided.</p>
+  <div class="row">
+    <figure><img src="images/plan_bathroom.jpg" alt="Bathroom plan" style="max-height:78mm"><figcaption>Figure 5.2: Bathroom: every piece labelled</figcaption></figure>
+    <figure><img src="images/plan_kitchen.jpg" alt="Kitchen plan" style="max-height:78mm"><figcaption>Figure 5.3: Kitchen: cabinets, appliances, door swing</figcaption></figure>
+  </div>
+
+  <h3>5.4 Connected rooms</h3>
+  <p>A <b>+</b> box outside each door adds a second room through that door. Rooms dock to each other wall to wall,
+  can be dragged along the shared wall, turned in 90° steps, or the whole layout turned at once. The doorway between
+  two rooms is drawn open on both sides, and each room keeps its own furniture, colours and floor.</p>
+  <figure>
+    <img src="images/plan_connected_rooms.jpg" alt="Four connected rooms with size lines" style="max-height:78mm">
+    <figcaption>Figure 5.4: Four connected rooms; long names wrap inside their room and each room has its own size lines</figcaption>
+  </figure>
+</section>
+
+<!-- ════════════════════════════ 6 SCANNER ════════════════════════════ -->
+<section class="chapter">
+  <h1>6. AR room scanner</h1>
+  <div class="row">
+    <div style="flex:1.6">
+      <p>The scanner measures a real room with the phone's camera, in the browser, with no app to install. It uses the
+      WebXR Device API in Chrome on Android (ARCore): the phone tracks its own position in the room, and a <i>hit test</i>
+      returns the 3D point where the centre of the screen meets the floor or a wall.</p>
+      <h3>6.1 Scanning steps</h3>
+      <ol>
+        <li><b>Walls.</b> Facing the wall with the door, the user taps four corners in a U: bottom-left on the floor,
+        top-left and top-right at the ceiling, bottom-right. Then they turn right to the next wall.</li>
+        <li><b>Close room.</b> After the fourth wall the app offers to close the room when the last corner meets the first.</li>
+        <li><b>Doors and windows</b> are captured by two corners; <b>furniture</b> by its type and size and one tap.
+        Tall cupboards take two corners, like a door.</li>
+        <li><b>Save to my designs</b> sends the room to the user's account, ready to open in the editor.</li>
+      </ol>
+      <p>A small diagram on screen shows the current wall and which corner is next, and a short hint at the start
+      points to where progress is shown.</p>
+    </div>
+    <figure style="flex:1">
+      <img src="images/scanner_howto_phone.jpg" alt="Scanner how-to page on a phone" style="max-height:125mm">
+      <figcaption>Figure 6.1: The scanner's picture guide</figcaption>
+    </figure>
+  </div>
+
+  <h3>6.2 How the room is computed</h3>
+  <ul>
+    <li><b>Walls as lines.</b> Each wall is a line on the floor through its bottom-corner taps. The room is the
+    rectangle that best fits all four lines: its angle from the four wall directions, its width and length from the
+    distance between opposite walls. Exact corner points are never needed, so a corner hidden behind furniture does
+    not spoil the result.</li>
+    <li><b>Furniture in the way.</b> Taps more than 20 cm above the floor are left out of the wall fit; the wall is
+    then placed from its top corners, which furniture never hides.</li>
+    <li><b>Ceiling height</b> comes from where the aiming lines through the top-corner taps meet each wall's plane.</li>
+    <li><b>Doors and windows</b>: two aimed corners meet the wall's plane, giving position, width, height and sill.</li>
+    <li><b>Tidy-up</b>: before saving, every floor piece is turned square to the walls and moved out of any overlap,
+    using the same rules as the editor.</li>
+  </ul>
+  <p>Every result is recomputed from the raw taps, which are saved in a scan log. An old scan therefore improves
+  automatically when the geometry code improves, and a saved log can be reopened on a laptop with
+  <b>Open a scan file</b>.</p>
+</section>
+
+<!-- ════════════════════════════ 7 AI ════════════════════════════ -->
+<section class="chapter">
+  <h1>7. AI assistant and camera detection</h1>
+  <figure>
+    <img src="images/ask_ai_desktop.jpg" alt="Ask AI panel beside the 3D room" style="width:88%">
+    <figcaption>Figure 7.1: The ✨ Ask AI panel opens as a column beside the room on a laptop</figcaption>
+  </figure>
+
+  <h3>7.1 What the assistant does</h3>
+  <p><b>✨ Ask AI</b> in the editor answers questions about the open room and proposes changes: paint walls, change
+  the floor, add or remove a piece, or furnish the whole room ("furnish this as a cozy study"). Every concrete
+  suggestion appears as a button. Nothing changes until the user taps it, and every applied change can be undone.
+  "Furnish this room as…" keeps the room's size, doors and windows, so it works on a scanned room too: scan the
+  room, then ask the assistant to furnish it.</p>
+
+  <h3>7.2 How it is kept reliable</h3>
+  <table class="grid">
+    <tr><th style="width:30%">Technique</th><th>Effect</th></tr>
+    <tr><td>Catalogue sent with every request</td><td>The model can only choose furniture, styles, floors and paints that the app can draw.</td></tr>
+    <tr><td>Structured output (JSON schema)</td><td>Answers come back as typed actions (<code>set_wall_color</code>, <code>add_furniture</code>, <code>furnish_room</code>…), never free-form coordinates.</td></tr>
+    <tr><td>Server-side checking</td><td>Every id is checked against the catalogue again; paint names are repaired to valid colours; a reply that promises a change but carries no action is retried.</td></tr>
+    <tr><td>App does the placing</td><td>Pieces are placed by <code>utils/promptRoom.js</code> with the editor's rules, so AI-made rooms never overlap or block doors.</td></tr>
+    <tr><td>Time limits and fallback</td><td>40 s per attempt, 75 s in total, with a faster model first and a fallback model if it is busy.</td></tr>
+    <tr><td>Rate limit</td><td>12 assistant requests per minute per user.</td></tr>
+  </table>
+
+  <h3>7.3 Camera detection during a scan</h3>
+  <p>When adding furniture during a scan, the user can tap <b>Guess from camera</b> instead of picking the type. The
+  phone first makes a quick guess on the device with MediaPipe's EfficientDet-Lite0 object detector (beds, chairs,
+  sofas, tables, TVs and similar), then sends one camera frame to Gemini through the server, which answers with a
+  furniture type from the app's catalogue. The best match is highlighted in the furniture picker; the user taps it
+  to confirm or picks another type, so a wrong guess never lands in the room unnoticed.</p>
+</section>
+
+<!-- ════════════════════════════ 8 EXPORT ════════════════════════════ -->
+<section class="chapter">
+  <h1>8. Floor plan export</h1>
+  <p>Any design can be exported as an A4 PDF from the editor or the dashboard. The export draws the same React
+  component as the on-screen 2D plan, off screen, then converts it to an image and places it on the page with the
+  design's name, room type, size, number of items and date. The PDF therefore always matches what the user sees:
+  every room with its size lines, every piece labelled inside its box, doors with their swings and windows. On a
+  phone the PDF can be shared directly through the phone's share sheet.</p>
+  <div class="row">
+    <figure><img src="images/plan_bedroom.jpg" alt="Bedroom plan" style="max-height:80mm"><figcaption>Figure 8.1: Bedroom plan as exported</figcaption></figure>
+    <figure><img src="images/plan_dining.jpg" alt="Dining room plan" style="max-height:80mm"><figcaption>Figure 8.2: Dining room plan as exported</figcaption></figure>
+  </div>
+</section>
+
+<!-- ════════════════════════════ 9 DATA ════════════════════════════ -->
+<section class="chapter">
+  <h1>9. Data model and API</h1>
+  <h3>9.1 Database tables</h3>
+  <table class="grid">
+    <tr><th style="width:24%">Table</th><th>Contents</th></tr>
+    <tr><td><code>users</code></td><td>Name, email, bcrypt password hash, profession, profile photo path, verified and onboarding flags.</td></tr>
+    <tr><td><code>otps</code></td><td>One-time codes for sign-up and password reset; each has an expiry time and works only once.</td></tr>
+    <tr><td><code>onboarding_responses</code></td><td>Answers to the first-time questions.</td></tr>
+    <tr><td><code>designs</code></td><td>One row per design: name, room type, width, length and wall height in feet (4 decimals), style, floor, and JSON lists of furniture, doors and windows, wall colours and connected rooms.</td></tr>
+  </table>
+  <p>Storing furniture and openings as JSON keeps a whole design in one row, so opening or saving a design is a single
+  query, and new furniture fields can be added without a database migration.</p>
+
+  <h3>9.2 REST API</h3>
+  <table class="grid">
+    <tr><th style="width:22%">Group</th><th style="width:12%">Routes</th><th>Purpose</th></tr>
+    <tr><td>Auth</td><td>4</td><td>Register, log in, forgot and reset password</td></tr>
+    <tr><td>OTP</td><td>3</td><td>Send, verify and resend one-time codes</td></tr>
+    <tr><td>Profile 🔒</td><td>4</td><td>Read and update profile, change password, upload photo</td></tr>
+    <tr><td>Onboarding 🔒</td><td>1</td><td>Save the first-time answers</td></tr>
+    <tr><td>Designs 🔒</td><td>5</td><td>List, read, create, update, delete designs</td></tr>
+    <tr><td>Assistant 🔒</td><td>2</td><td>Plan a room from text; chat about the open room</td></tr>
+  </table>
+  <p class="small muted">🔒 needs a valid login token.</p>
+
+  <h3>9.3 Coordinates</h3>
+  <p>All lengths are in feet. The room is centred on the origin with the front wall at −z. A floor piece stores its
+  centre (<code>x</code>, <code>z</code>), size and rotation; a wall piece stores its wall, its position along that
+  wall and its height above the floor. Connected rooms store their offset from the main room.</p>
+</section>
+
+<!-- ════════════════════════════ 10 UI ════════════════════════════ -->
+<section class="chapter">
+  <h1>10. User interface: themes, phones, tutorial</h1>
+  <ul>
+    <li><b>Light and dark themes</b> come from one set of colour tokens and are remembered per device; the scanner
+    page follows the same theme.</li>
+    <li><b>Phones.</b> The editor fills the screen with the top bar and bottom bar pinned. Tools sit in a <b>☰ Tools</b>
+    menu, and the selected piece's size, rotation and delete controls appear next to it. Panels become bottom sheets,
+    and no control overlaps another at phone width.</li>
+    <li><b>Guided tour.</b> The <b>?</b> button starts an 8-step tour that spotlights each control. On a phone the card
+    moves to the top or bottom of the screen, away from what it points at.</li>
+    <li><b>Short instructions</b> everywhere, with pictures in the scanner instead of long text.</li>
+  </ul>
+  <div class="row">
+    <figure><img src="images/editor_2d_phone.jpg" alt="2D plan on a phone" style="max-height:105mm"><figcaption>Figure 10.1: 2D plan on a phone</figcaption></figure>
+    <figure><img src="images/editor_3d_phone.jpg" alt="3D view on a phone" style="max-height:105mm"><figcaption>Figure 10.2: 3D view on a phone</figcaption></figure>
+    <figure><img src="images/tutorial_phone.jpg" alt="Guided tour on a phone" style="max-height:105mm"><figcaption>Figure 10.3: Guided tour</figcaption></figure>
+  </div>
+</section>
+
+<!-- ════════════════════════════ 11 SECURITY ════════════════════════════ -->
+<section class="chapter">
+  <h1>11. Security</h1>
+  <table class="grid">
+    <tr><th style="width:30%">Area</th><th>Measure</th></tr>
+    <tr><td>Passwords</td><td>Stored only as bcrypt hashes (cost 10).</td></tr>
+    <tr><td>Sessions</td><td>Signed JWTs with an expiry; every protected route checks the token.</td></tr>
+    <tr><td>Account verification</td><td>Email one-time codes that expire and work only once; checking them is rate-limited.</td></tr>
+    <tr><td>Brute force</td><td>Rate limits: 10 logins, 5 code requests and 10 code checks per 15 minutes; 10 photo uploads per hour; 12 AI requests per minute; 200 requests per 15 minutes overall.</td></tr>
+    <tr><td>Secrets</td><td>Database password, JWT secret and Gemini key live in server-side <code>.env</code> files, excluded from version control; the Gemini key is a free-tier key with no billing attached.</td></tr>
+    <tr><td>Data access</td><td>Every design query is filtered by the logged-in user's id, so users can only see and change their own designs.</td></tr>
+    <tr><td>Uploads</td><td>Profile photos are size-limited and type-checked.</td></tr>
+    <tr><td>Transport</td><td>HTTPS in development (needed by WebXR) and in production.</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════════ 12 TESTING ════════════════════════════ -->
+<section class="chapter">
+  <h1>12. Testing and results</h1>
+  <div class="stats">
+    <div class="stat"><b>306</b><span>automated scanner tests, all passing</span></div>
+    <div class="stat"><b>2.72 m</b><span>measured ceiling vs 2.74 m by tape</span></div>
+    <div class="stat"><b>1–2 cm</b><span>typical error on floor lines</span></div>
+    <div class="stat"><b>14 / 86</b><span>room types / furniture types</span></div>
+  </div>
+
+  <h3>12.1 Automated tests</h3>
+  <p>The scanner's geometry is covered by 306 Vitest tests in 16 files, including a complete room scan driven by a
+  simulated AR session. Every geometry test uses rooms that are rotated, away from the origin and with the floor
+  below zero, as in a real AR session, so the code cannot rely on convenient coordinates.</p>
+
+  <h3>12.2 Measurement accuracy</h3>
+  <table class="grid">
+    <tr><th style="width:36%">Measurement</th><th>Result</th></tr>
+    <tr><td>Straight lines on an open floor</td><td>Within 1–2 cm typically; about 4 cm on long lines</td></tr>
+    <tr><td>Ceiling height (real room)</td><td>2.72 m against 2.74 m by tape</td></tr>
+    <tr><td>Room size</td><td>Within a few centimetres when tracking is steady and the corners are visible</td></tr>
+    <tr><td>Furniture size from one tap</td><td>Standard catalogue sizes (Single, Double, Queen, King…), not measured</td></tr>
+  </table>
+
+  <h3>12.3 Functional and interface checks</h3>
+  <ul>
+    <li>Rooms of all 14 types were generated and drawn through the PDF export path; an automatic check found no
+    overlapping labels, and the plans were inspected visually.</li>
+    <li>The editor, dashboard, scanner page and tutorial were checked at phone width (375 px) and laptop width
+    (1280 px), in both themes, for overlapping controls.</li>
+    <li>The AI assistant was tested live for plans and chat actions, including timeouts, a busy model and replies
+    with missing fields.</li>
+    <li>End to end: a room scanned on a phone was saved and opened in the laptop editor with its real size, ceiling
+    height, doors and furniture.</li>
+  </ul>
+</section>
+
+<!-- ════════════════════════════ 13 LIMITATIONS ════════════════════════════ -->
+<section class="chapter">
+  <h1>13. Limitations and future work</h1>
+  <h3>13.1 Limitations</h3>
+  <ul>
+    <li><b>Rectangular rooms only.</b> L-shaped and irregular rooms must be built from several connected rooms.</li>
+    <li><b>Android only for scanning.</b> iPhones do not support WebXR AR in Safari.</li>
+    <li><b>Tracking drift.</b> Fast turns, plain walls and shiny floors can make the phone's tracking slip, putting a wall
+    tens of centimetres off. The app flags inconsistent walls and suggests a rescan.</li>
+    <li><b>Furniture sizes</b> from a single tap are standard sizes, not measured.</li>
+    <li><b>AI availability</b> depends on the free tier of the Gemini API.</li>
+  </ul>
+  <h3>13.2 Future work</h3>
+  <ul>
+    <li><b>Deployment</b> to the public web: frontend on Vercel, database on Neon (managed PostgreSQL), sign-up codes by Gmail.</li>
+    <li><b>Better scanning:</b> drift correction from re-sighting the first corner, and measured furniture sizes.</li>
+    <li><b>Irregular rooms</b> from more than four walls.</li>
+    <li><b>Shopping links</b> for furniture that matches the catalogue sizes, and cost estimates.</li>
+    <li><b>Sharing and collaboration:</b> read-only links and comments on a design.</li>
+  </ul>
+</section>
+
+<!-- ════════════════════════════ 14 CONCLUSION ════════════════════════════ -->
+<section class="chapter">
+  <h1>14. Conclusion</h1>
+  <p>roomcraft shows that room planning can start from the real room rather than an empty box. A phone in a browser
+  measures the room to within centimetres, the editor turns it into a 2D plan and 3D model that enforce physical rules,
+  and an AI assistant proposes complete layouts and changes that the user applies with a tap. Keeping the AI to
+  choosing items while the app does the placing gave reliable results: AI-made rooms follow the same collision and
+  clearance rules as rooms built by hand.</p>
+  <p>The project combined web development, 3D graphics, augmented reality, computer vision and generative AI in one
+  product that works on phones and laptops alike, with accounts, saved designs and printable floor plans.</p>
+
+  <h2>References</h2>
+  <ol class="small">
+    <li>W3C. <i>WebXR Device API</i> and <i>WebXR Hit Test Module</i>. https://www.w3.org/TR/webxr/</li>
+    <li>Google. <i>ARCore overview</i>. https://developers.google.com/ar</li>
+    <li>three.js documentation. https://threejs.org/docs/</li>
+    <li>pmndrs. <i>React Three Fiber</i> documentation. https://r3f.docs.pmnd.rs/</li>
+    <li>React documentation. https://react.dev/</li>
+    <li>Google. <i>Gemini API: structured output</i>. https://ai.google.dev/gemini-api/docs/structured-output</li>
+    <li>Google. <i>MediaPipe Object Detector</i>. https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector</li>
+    <li>PostgreSQL 16 documentation. https://www.postgresql.org/docs/16/</li>
+    <li>Express documentation. https://expressjs.com/</li>
+    <li>IETF RFC 7519. <i>JSON Web Token (JWT)</i>.</li>
+  </ol>
+</section>
+
+</body>
+</html>

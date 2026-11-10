@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* light theme: a dimmer, warmer paper tone (was #F3ECE1, too bright), with
+   darker borders and text so buttons and fields stand out */
+@theme {
+  --color-bg: #E6DED2;
+  --color-surface: #DBD0BF;
+  --color-text: #2B251F;
+  --color-accent: #9A5234;
+  --color-accent-secondary: #4F5D42;
+  --color-border: #B9A88F;
+}
+
+.dark {
+  --color-bg: #211D1A;
+  --color-surface: #2C2621;
+  --color-text: #EDE6DD;
+  --color-accent: #C97A55;
+  --color-accent-secondary: #7A8A68;
+  --color-border: #3A332C;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}

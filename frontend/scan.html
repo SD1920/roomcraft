@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RoomCraft - Scan your room</title>
+    <!-- the app's dark/light theme (useTheme keeps it in localStorage "theme"), set before the page paints -->
+    <script>
+      try {
+        var t = localStorage.getItem('theme')
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <main id="page">
+      <!-- RoomCraft: back to the app -->
+      <nav class="app-nav"><a href="/dashboard">&larr; My Designs</a><span id="app-user"></span></nav>
+      <h1>Scan your room</h1>
+      <p class="lead">
+        Scan a room with your phone's camera: its size, ceiling height, doors,
+        windows and furniture, ready for the design app.
+      </p>
+
+      <section hidden>
+        <h2>1. This device</h2>
+        <table id="env-table" class="kv"></table>
+        <p id="env-help" class="help"></p>
+      </section>
+
+      <section hidden>
+        <h2>2. AR features</h2>
+        <button id="btn-features" disabled>Check phone features</button>
+        <p class="help">Opens the camera for a moment, then closes it.</p>
+        <p id="feature-verdict" class="verdict"></p>
+        <table id="feature-table"></table>
+      </section>
+
+      <section id="measure" data-mode="room">
+        <h2>1. Scan</h2>
+        <div class="modes">
+          <label><input type="radio" name="mode" value="room" checked />
+            <span><b>Room scan</b> - walls by their corners, then doors, windows and furniture. Gives the room for the design app.</span></label>
+          <label hidden><input type="radio" name="mode" value="pairs" />
+            <span><b>Separate lines</b> - taps 1-2 make a line, taps 3-4 the next. For a tape check.</span></label>
+          <label hidden><input type="radio" name="mode" value="outline" />
+            <span><b>Connected outline</b> - every tap joins to the one before. For tracing a tile; finish on the point you started from.</span></label>
+        </div>
+
+        <!-- how to scan a room: a demo room, the order of walls and corners -->
+        <div id="howto" class="howto room-help">
+          <h3>How to scan a room</h3>
+          <div class="howto-pics">
+            <figure>
+              <svg viewBox="0 0 200 170" role="img" aria-label="Top view of a room: walls 1 to 4 in turn, turning right, starting with the wall that has the door">
+                <rect x="30" y="20" width="140" height="130" fill="#f4f6f8" stroke="#333" stroke-width="3"/>
+                <line x1="70" y1="20" x2="100" y2="20" stroke="#f4f6f8" stroke-width="5"/>
+                <path d="M70 20 A30 30 0 0 0 100 50" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="3 3"/>
+                <text x="85" y="14" text-anchor="middle" font-size="10" fill="#555">door</text>
+                <g font-size="13" font-weight="700" text-anchor="middle">
+                  <circle cx="135" cy="20" r="11" fill="#1a73e8"/><text x="135" y="25" fill="#fff">1</text>
+                  <circle cx="170" cy="85" r="11" fill="#1a73e8"/><text x="170" y="90" fill="#fff">2</text>
+                  <circle cx="100" cy="150" r="11" fill="#1a73e8"/><text x="100" y="155" fill="#fff">3</text>
+                  <circle cx="30" cy="85" r="11" fill="#1a73e8"/><text x="30" y="90" fill="#fff">4</text>
+                </g>
+                <circle cx="100" cy="85" r="6" fill="#e8710a"/>
+                <text x="100" y="104" text-anchor="middle" font-size="10" fill="#e8710a">you</text>
+                <path d="M118 62 A28 28 0 0 1 126 98" fill="none" stroke="#e8710a" stroke-width="2.5" marker-end="url(#howto-arrow)"/>
+                <text x="140" y="120" text-anchor="middle" font-size="10" fill="#e8710a">turn right</text>
+                <defs><marker id="howto-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#e8710a"/></marker></defs>
+              </svg>
+              <figcaption>Start facing the wall with the door (wall 1). Then turn right for walls 2, 3, 4.</figcaption>
+            </figure>
+            <figure>
+              <svg viewBox="0 0 200 150" role="img" aria-label="One wall: tap its corners in a U: 1 bottom-left, 2 top-left, 3 top-right, 4 bottom-right">
+                <rect x="35" y="22" width="130" height="88" fill="#f4f6f8" stroke="#333" stroke-width="2"/>
+                <line x1="10" y1="110" x2="190" y2="110" stroke="#333" stroke-width="2"/>
+                <text x="100" y="128" text-anchor="middle" font-size="10" fill="#555">floor</text>
+                <text x="100" y="15" text-anchor="middle" font-size="10" fill="#555">ceiling</text>
+                <path d="M35 100 L35 32 M45 22 L155 22 M165 32 L165 100" fill="none" stroke="#e8710a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#howto-arrow)"/>
+                <g font-size="12" font-weight="700" text-anchor="middle">
+                  <circle cx="35" cy="110" r="10" fill="#1e8e3e"/><text x="35" y="114" fill="#fff">1</text>
+                  <circle cx="35" cy="22" r="10" fill="#1a73e8"/><text x="35" y="26" fill="#fff">2</text>
+                  <circle cx="165" cy="22" r="10" fill="#1a73e8"/><text x="165" y="26" fill="#fff">3</text>
+                  <circle cx="165" cy="110" r="10" fill="#1e8e3e"/><text x="165" y="114" fill="#fff">4</text>
+                </g>
+                <text x="100" y="145" text-anchor="middle" font-size="10" fill="#333">green = floor corners, blue = ceiling corners</text>
+              </svg>
+              <figcaption>On each wall tap 4 corners: bottom-left, top-left, top-right, bottom-right.</figcaption>
+            </figure>
+          </div>
+          <ol>
+            <li><b>Start</b>, then sweep the floor slowly until a <b>green ring</b> appears.</li>
+            <li><b>Each wall:</b> tap its 4 corners as the picture shows. Green ring on the floor, white dot at the ceiling.
+              Corner hidden? Tap beside it, or on the wall (<b>blue</b> ring). No ceiling in view? <b>Skip</b>.</li>
+            <li><b>Next wall</b>, turn right. After wall 4: <b>Close room</b>.</li>
+            <li><b>Door / Window:</b> 2 corners. <b>Furniture:</b> pick it, tap once. Then <b>Finish</b>.</li>
+          </ol>
+        </div>
+
+        <button id="btn-start" class="primary" disabled>Start AR scan</button>
+        <ol class="help lines-help">
+          <li>Move the phone slowly over the floor for a few seconds, then wait for the green ring.</li>
+          <li>Aim the ring at a point and tap the camera view.</li>
+          <li>Aim at the next point and tap again. A line and its length appear.</li>
+          <li>Tap the chip that matches the real length of that line.</li>
+        </ol>
+        <p id="start-error" class="error"></p>
+      </section>
+
+      <section hidden>
+        <h2>4. Results</h2>
+        <p id="summary" class="verdict"></p>
+        <p id="outline-gaps" class="help"></p>
+        <p class="help">Type the real length of any line into its Tape box, in cm. Clear the box to remove it.</p>
+        <div class="scroll"><table id="result-table"></table></div>
+        <div class="row">
+          <button id="btn-json" disabled>Download log (JSON)</button>
+          <button id="btn-csv" disabled>Download table (CSV)</button>
+          <button id="btn-clear" class="danger" disabled>Clear saved data</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>2. Your room</h2>
+        <p id="room-summary" class="verdict"></p>
+        <p id="log-status" class="help"></p>
+        <ul id="room-problems" class="problems"></ul>
+        <div class="scroll"><table id="room-openings"></table></div>
+        <div class="scroll"><table id="room-furniture"></table></div>
+        <h3 id="review-head" hidden>Found by the camera</h3>
+        <p id="review-note" class="help" hidden></p>
+        <div class="scroll"><table id="room-review"></table></div>
+        <div id="room-sketch" class="sketch"></div>
+        <p id="save-status" class="verdict"></p>
+        <div class="row">
+          <button id="btn-save-app" class="primary" disabled>Save to my designs</button>
+          <button id="btn-design" disabled>Download design for the app (JSON)</button>
+          <button id="btn-room-csv" disabled>Download items (CSV)</button>
+          <button id="btn-sketch" disabled>Download sketch (SVG)</button>
+          <label class="file-button">Open a scan file (.json log)<input id="log-file" type="file" accept="application/json,.json" hidden /></label>
+        </div>
+        <p class="help">The design file is in the app's own format, in feet, ready for its
+          POST /api/designs, with the ceiling height as room_height (feet; null if not measured).
+          Pieces found by the camera and kept are in it as furniture, doors and windows; the rest
+          are listed under scan.suggestions.</p>
+      </section>
+    </main>
+
+    <!-- shown on top of the camera view while an AR session is running -->
+    <div id="overlay">
+      <div id="ov-crosshair"></div>
+      <div id="ov-top">
+        <!-- the current wall (or door, window, piece) and which corner is next -->
+        <div id="rs-guide" class="room-only"></div>
+        <div id="ov-text">
+          <div id="ov-status">Starting...</div>
+          <button id="ov-details" class="link">details</button>
+          <div id="ov-readout" hidden></div>
+        </div>
+      </div>
+      <!-- shown for a few seconds when a room scan starts -->
+      <div id="rs-coach" class="room-only" hidden>⬆ Your progress shows here</div>
+      <div id="ov-controls">
+        <div id="ov-msg"></div>
+        <!-- shown when a floor tap came back off the floor: the user decides -->
+        <div id="ov-confirm" class="row" hidden>
+          <button id="ov-use">Use it as is</button>
+          <button id="ov-skip" class="primary">Skip (recommended)</button>
+        </div>
+        <div id="ov-room" class="room-only">
+          <div id="rs-dims"></div>
+          <!-- after wall 4: the room closes (a suggestion, never forced) -->
+          <div id="rs-close" hidden>
+            <div id="rs-close-msg"></div>
+            <div class="row">
+              <button id="rs-close-room" class="primary">Close room</button>
+              <button id="rs-close-anyway">Close anyway (size may be off)</button>
+              <button id="rs-keep">Keep capturing</button>
+            </div>
+          </div>
+          <div class="row">
+            <button id="rs-skip">Skip (can't see the ceiling)</button>
+            <button id="rs-redo">Redo wall</button>
+            <button id="rs-next" class="primary">Next wall</button>
+            <button id="rs-close-show" class="primary">Close room</button>
+            <button id="rs-door">Door</button>
+            <button id="rs-window">Window</button>
+            <button id="rs-furniture">Furniture</button>
+            <button id="rs-ceiling">Ceiling height</button>
+            <button id="rs-done" class="primary">Done (standard depth)</button>
+            <button id="rs-finish" class="primary">Finish</button>
+          </div>
+          <!-- furniture type picker: buttons, not a <select>, because native
+               pickers are as unreliable inside AR as the keyboard -->
+          <div id="ov-picker" hidden>
+            <div id="pk-note"></div>
+            <div id="pk-cats"></div>
+            <div id="pk-types"></div>
+            <!-- common sizes for the chosen type, e.g. Bed: Single / Double / Queen / King -->
+            <div id="pk-sizes" hidden></div>
+            <div class="row">
+              <button id="pk-guess">Guess from camera</button>
+              <button id="pk-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div id="ov-last" class="lines-only"></div>
+        <div id="ov-chips" class="lines-only">
+          <span>Tape length:</span>
+          <button data-m="0.5">0.5 m</button>
+          <button data-m="0.6">0.6 m</button>
+          <button data-m="1">1 m</button>
+          <button data-m="2">2 m</button>
+          <button data-m="3">3 m</button>
+          <button data-m="4">4 m</button>
+          <button id="ov-type">Type...</button>
+        </div>
+        <!-- An on-screen keypad rather than a text box: the phone's own
+             keyboard is not dependable inside an AR session. -->
+        <div id="ov-keypad" class="lines-only" hidden>
+          <div id="kp-display"></div>
+          <div id="kp-keys">
+            <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+            <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+            <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+            <button data-k=".">.</button><button data-k="0">0</button><button data-k="back">Del</button>
+          </div>
+          <div class="row">
+            <button id="kp-cancel">Cancel</button>
+            <button id="kp-set" class="primary">Set length</button>
+          </div>
+        </div>
+        <div class="row">
+          <button id="ov-undo">Undo</button>
+          <button id="ov-clear" class="lines-only">Clear</button>
+          <button id="ov-end" class="primary">End</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/roomscan/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+# dependencies and builds
+node_modules/
+dist/
+.vercel/
+
+# secrets: never commit
+.env
+.env.*
+!.env.production
+!**/env.example
+*.local
+
+# uploaded files (local runs)
+uploads/
+
+# editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.log

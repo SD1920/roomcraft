@@ -1,0 +1,42 @@
+{
+  "_about": "Common sizes for catalog furniture types, in FEET (width along the front, depth front to back, height). Picking one replaces the catalog's standard size; the type stays the team app's, so its 3D view still renders it. Indian retail sizes; height left out where the catalog's is fine.",
+  "presets": {
+    "bed": [
+      { "name": "Single", "width": 3, "depth": 6.25 },
+      { "name": "Double", "width": 4.5, "depth": 6.25 },
+      { "name": "Queen", "width": 5, "depth": 6.25 },
+      { "name": "King", "width": 6, "depth": 6.25 }
+    ],
+    "sofa": [
+      { "name": "2-seater", "width": 4.5, "depth": 2.8 },
+      { "name": "3-seater", "width": 6, "depth": 2.8 }
+    ],
+    "diningTable": [
+      { "name": "4-seater", "width": 4, "depth": 2.5 },
+      { "name": "6-seater", "width": 5, "depth": 3 },
+      { "name": "8-seater", "width": 6.5, "depth": 3.5 }
+    ],
+    "desk": [
+      { "name": "Study", "width": 3.5, "depth": 2 },
+      { "name": "Computer", "width": 4, "depth": 2 },
+      { "name": "Office", "width": 5, "depth": 2.5 }
+    ],
+    "wardrobe": [
+      { "name": "2-door", "width": 3, "depth": 2 },
+      { "name": "3-door", "width": 4.5, "depth": 2 },
+      { "name": "4-door", "width": 6, "depth": 2 }
+    ],
+    "almirah": [
+      { "name": "2-door", "width": 3, "depth": 1.75 },
+      { "name": "3-door", "width": 4.5, "depth": 1.75 }
+    ],
+    "coffeeTable": [
+      { "name": "Small", "width": 3, "depth": 1.5 },
+      { "name": "Large", "width": 4, "depth": 2 }
+    ],
+    "tvUnit": [
+      { "name": "4 ft", "width": 4, "depth": 1.5 },
+      { "name": "6 ft", "width": 6, "depth": 1.5 }
+    ]
+  }
+}

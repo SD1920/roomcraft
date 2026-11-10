@@ -1,0 +1,284 @@
+:root {
+  --bg: #f6f6f4;
+  --card: #ffffff;
+  --text: #1c1c1a;
+  --muted: #62625c;
+  --line: #d9d9d2;
+  --accent: #1f6feb;
+  --good: #1a7f37;
+  --bad: #c62828;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+#page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 { font-size: 1.5rem; margin: 8px 0 4px; }
+h2 { font-size: 1.05rem; margin: 0 0 10px; }
+.lead { color: var(--muted); margin: 0 0 16px; }
+
+section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+button {
+  font: inherit;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--bad); }
+button:disabled { opacity: 0.45; }
+
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+/* The hidden attribute must always win: a rule like .row { display: flex }
+   otherwise overrides it. 1 Nov: the "Use it as is / Skip" row showed all
+   the time and its Skip seemed to do nothing. */
+[hidden] { display: none !important; }
+.modes { display: grid; gap: 8px; margin-bottom: 12px; font-size: 0.92rem; }
+.modes label { display: flex; gap: 8px; align-items: flex-start; }
+.modes input { margin-top: 4px; }
+.help { color: var(--muted); font-size: 0.9rem; margin: 8px 0 0; }
+ol.help { padding-left: 20px; }
+.error { color: var(--bad); margin: 8px 0 0; }
+.verdict { font-weight: 600; margin: 10px 0 6px; }
+.verdict:empty, .error:empty, .help:empty { display: none; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.yes { color: var(--good); font-weight: 600; }
+.no { color: var(--bad); font-weight: 600; }
+.scroll { overflow-x: auto; }
+
+/* ---- AR overlay ---------------------------------------------------------
+   Hidden on the normal page. While a session runs the browser shows this
+   element full-screen over the camera view, so it has to stay transparent. */
+#overlay { display: none; }
+#overlay.active {
+  display: block;
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  color: #fff;
+}
+
+#ov-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+/* the top bar starts below the phone's camera hole / notch (WebXR's overlay
+   covers the whole screen, so it would sit under the camera) */
+#ov-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 48px) 14px 12px;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+}
+#ov-status { font-weight: 600; }
+#ov-readout { font-size: 0.9rem; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+
+#ov-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 14px 18px;
+  background: rgba(0, 0, 0, 0.62);
+}
+#ov-last { font-weight: 600; min-height: 1.5em; font-variant-numeric: tabular-nums; }
+#ov-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.9rem; }
+#ov-chips button { padding: 6px 10px; }
+#ov-chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#ov-controls .row button { flex: 1; }
+
+/* one overlay serves both line measuring and the room scan */
+#overlay[data-mode="room"] .lines-only { display: none; }
+#overlay:not([data-mode="room"]) .room-only { display: none; }
+#ov-room button[hidden] { display: none; }
+#ov-room button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#rs-dims { font-weight: 600; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+#ov-msg { color: #ffd2d2; font-size: 0.9rem; font-weight: 600; }
+#ov-msg:empty { display: none; }
+
+#ov-picker { margin-top: 8px; }
+#pk-cats, #pk-types { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+#pk-types { max-height: 38vh; overflow-y: auto; }
+#pk-cats button, #pk-types button { padding: 6px 10px; font-size: 0.9rem; }
+#pk-cats button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#room-furniture { margin-top: 10px; }
+.sketch { margin-top: 12px; overflow-x: auto; }
+.sketch svg { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+.sketch:empty { display: none; }
+
+ul.problems { margin: 6px 0 0; padding-left: 20px; color: var(--bad); font-size: 0.92rem; }
+ul.problems:empty { display: none; }
+
+#ov-keypad { margin-top: 10px; }
+#kp-display {
+  font-size: 1.3rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-height: 1.6em;
+  margin-bottom: 6px;
+}
+#kp-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#kp-keys button { padding: 12px 0; font-size: 1.1rem; }
+
+td input.tape {
+  width: 5.5em;
+  font: inherit;
+  text-align: right;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+/* top of the AR view: the guide picture beside one instruction line */
+#ov-top { display: flex; gap: 10px; align-items: flex-start; }
+#ov-text { flex: 1; min-width: 0; }
+#ov-status { font-size: 1.05rem; line-height: 1.35; }
+#rs-guide { flex: 0 0 auto; width: 120px; }
+#rs-guide:empty { display: none; }
+#rs-guide svg { width: 120px; height: auto; display: block; }
+#overlay:not([data-mode="room"]) #rs-guide { display: none; }
+@keyframes guide-pulse { 0%, 100% { r: 9px; opacity: 1; } 50% { r: 12px; opacity: 0.6; } }
+#rs-guide .next { animation: guide-pulse 1s ease-in-out infinite; }
+button.link { background: none; border: none; padding: 2px 0; color: #9cc3ff; font-size: 0.8rem; text-decoration: underline; }
+
+/* after wall 4: close the room, or keep capturing */
+#rs-close { margin: 6px 0; padding: 8px; border-radius: 8px; background: rgba(30, 142, 62, 0.35); }
+#rs-close.open-gap { background: rgba(232, 113, 10, 0.35); }
+#rs-close-msg { font-weight: 600; margin-bottom: 6px; }
+#rs-close button[hidden], #ov-room .row button[hidden] { display: none; }
+#pk-note { font-size: 0.9rem; font-weight: 600; min-height: 1.2em; }
+#pk-note:empty { display: none; }
+#pk-types button.guess { outline: 3px solid #fbbc04; }
+#pk-sizes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+#pk-sizes button { padding: 8px 10px; font-size: 0.9rem; }
+
+/* start page: how to scan a room */
+#measure:not([data-mode="room"]) .room-help { display: none; }
+#measure[data-mode="room"] .lines-help { display: none; }
+.howto { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.howto h3 { margin: 0 0 8px; }
+.howto-pics { display: flex; flex-wrap: wrap; gap: 12px; }
+.howto figure { flex: 1 1 200px; margin: 0; }
+.howto svg { width: 100%; max-width: 260px; height: auto; display: block; margin: 0 auto; }
+.howto figcaption { font-size: 0.9rem; text-align: center; margin-top: 4px; }
+.howto ol { padding-left: 20px; margin: 10px 0 0; }
+.howto li { margin-bottom: 6px; }
+
+/* review list of pieces found by the camera */
+#room-review button { padding: 4px 8px; margin: 1px; font-size: 13px; }
+#room-review button.on { background: #1a73e8; color: #fff; }
+#room-review select { max-width: 9em; }
+#room-review tr.removed td:not(:last-child) { text-decoration: line-through; opacity: 0.55; }
+
+/* "Open a scan file": a label styled as a button around a hidden file input */
+.file-button {
+  display: inline-block; font: inherit; padding: 10px 14px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--card); cursor: pointer;
+}
+
+/* "Your progress shows here": a bubble under the corner diagram, pointing up at it */
+#rs-coach {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 48px + 102px);
+  left: 14px;
+  z-index: 3;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #fbbc04;
+  color: #1c1c1a;
+  font-size: 0.85rem;
+  font-weight: 700;
+  animation: coach-bob 1s ease-in-out infinite;
+}
+#rs-coach::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 40px;
+  border: 8px solid transparent;
+  border-top: 0;
+  border-bottom-color: #fbbc04;
+}
+#overlay:not([data-mode="room"]) #rs-coach { display: none; }
+@keyframes coach-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+/* RoomCraft app: the bar linking back to My Designs */
+.app-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem; }
+.app-nav a { color: var(--accent); font-weight: 600; text-decoration: none; }
+#app-user { color: var(--muted); font-size: 0.85rem; }
+#save-status a { color: var(--accent); font-weight: 600; }
+
+/* RoomCraft app: its colours, light and dark (index.css), instead of the
+   scanner's own grey and blue. The AR view itself stays dark in both. */
+:root {
+  --bg: #E6DED2;
+  --card: #DBD0BF;
+  --text: #2B251F;
+  --muted: #62584D;
+  --line: #B9A88F;
+  --accent: #9A5234;
+  --good: #3F6B2F;
+  --bad: #B3261E;
+  color-scheme: light;
+}
+.dark {
+  --bg: #211D1A;
+  --card: #2C2621;
+  --text: #EDE6DD;
+  --muted: #B3A89B;
+  --line: #3A332C;
+  --accent: #C97A55;
+  --good: #8DB27A;
+  --bad: #F28B82;
+  color-scheme: dark;
+}
+button { background: var(--bg); color: var(--text); border-color: var(--line); }
+button:disabled { opacity: 0.5; }
+.howto { background: var(--bg); }
+#room-review button.on { background: var(--accent); }
+/* the how-to pictures: their room and lines follow the theme */
+.howto svg rect[fill="#f4f6f8"], .howto svg line[stroke="#f4f6f8"] { fill: var(--card); stroke: var(--line); }
+.howto svg line[stroke="#f4f6f8"] { stroke: var(--card); }
+.howto svg [stroke="#333"] { stroke: var(--text); }
+.howto svg text[fill="#555"], .howto svg text[fill="#333"] { fill: var(--muted); }
+.howto svg [stroke="#999"] { stroke: var(--muted); }
+.howto figcaption { color: var(--muted); }
+/* the plan sketch is a drawing on white paper: keep it light, with a frame */
+.sketch svg { background: #fff; }
+/* over the camera picture the buttons stay light, in both themes, to be readable */
+#overlay button:not(.primary):not(.on):not(.link) { background: #fff; color: #1c1c1a; border-color: #d9d9d2; }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--accent); }
