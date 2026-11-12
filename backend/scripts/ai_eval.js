@@ -19,7 +19,7 @@ import { furnitureDefinitions, stylePresets, floorPresets, ROOM_TYPES, wallPaint
 const args = process.argv.slice(2)
 const arg = (name) => { const i = args.indexOf(name); return i === -1 ? null : args[i + 1] ?? true }
 
-const PROMPTS = [
+export const PROMPTS = [
   ['What wall colour would suit this room?', ['set_wall_color']],
   ['Paint the walls sage green', ['set_wall_color']],
   ['Make the left wall dusty blue', ['set_wall_color']],
@@ -52,14 +52,14 @@ const PROMPTS = [
   ['add bunk bed', ['add_furniture']],
 ]
 
-const catalog = {
+export const catalog = {
   room_types: ROOM_TYPES.map((r) => ({ id: r.id, name: r.name })),
   styles: Object.entries(stylePresets).map(([id, s]) => ({ id, name: s.name, description: s.description })),
   floors: floorPresets.map((f) => ({ id: f.id, name: f.name })),
   paints: wallPaints.map((p) => ({ name: p.name, color: p.color })),
   furniture: Object.entries(furnitureDefinitions).map(([id, d]) => ({ id, name: d.name, category: d.category, wall_mounted: Boolean(d.wallMounted), sizes: [] })),
 }
-const room = {
+export const room = {
   room_type: 'bedroom', width_ft: 12, length_ft: 14, height_ft: 9, style: 'minimal', floor_type: 'lightWood',
   wall_colors: { front: '#f5f5f0', back: '#f5f5f0', left: '#f5f5f0', right: '#f5f5f0' }, connected_rooms: 0,
   openings: [
@@ -141,7 +141,8 @@ async function perModel() {
 }
 
 const url = arg('--url')
-try {
+const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/').split('/').slice(-3).join('/'))
+if (isMain) try {
   if (url && url !== true) await viaApi(url)
   else if (args.includes('--models')) await perModel()
   else console.log('usage: node backend/scripts/ai_eval.js --url https://<site>   |   --models   [--only N]')
