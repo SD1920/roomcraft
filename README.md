@@ -52,6 +52,35 @@ Vercel ── static site: React app (/) and AR scanner (/scan.html)
                                                     └──────────────────► Google Gemini
 ```
 
+## Project structure
+
+```
+roomcraft/
+├── frontend/                  React app and AR scanner (Vite)
+│   ├── src/roomscan/          AR room scanner + camera furniture detection  (has its own README)
+│   ├── src/utils/             placement rules, AI room placer, PDF export
+│   ├── src/components/        2D plan, 3D viewer, AI chat panel, guided tour
+│   ├── src/pages/             one file per page (editor, dashboard, login…)
+│   ├── server/                Gemini call for the camera guess
+│   ├── tests/                 306 scanner tests (Vitest)
+│   └── scan.html              the scanner page
+├── backend/                   Express API: accounts, designs, AI assistant
+├── api/index.js               Vercel serverless entry point (runs backend/app.js)
+├── docs/                      project report, presentation, screenshots
+└── vercel.json                build and routing on Vercel
+```
+
+### Where the AI / ML / CV code is
+
+| Part | Code | What it does |
+|---|---|---|
+| **AR room scanner** (computer vision, geometry) | [`frontend/src/roomscan/`](frontend/src/roomscan/): see its [README](frontend/src/roomscan/README.md) | WebXR session and hit tests; fits a line to each wall and the best rectangle to all four; ceiling height; doors, windows and furniture from taps |
+| ↳ core maths | [`scan/room_scan.js`](frontend/src/roomscan/scan/room_scan.js), [`geometry/floor.js`](frontend/src/roomscan/geometry/floor.js), [`geometry/ray.js`](frontend/src/roomscan/geometry/ray.js) | Pure functions, no browser needed; covered by the tests |
+| **Camera furniture detection** (deep learning, vision LLM) | [`frontend/src/roomscan/detect/`](frontend/src/roomscan/detect/), [`frontend/server/gemini_detect.js`](frontend/server/gemini_detect.js) | On-device MediaPipe EfficientDet-Lite0 model, pixel → floor position, merging repeat sightings, Gemini check against the catalogue |
+| **AI room assistant** (LLM, structured output) | [`backend/controllers/assistantController.js`](backend/controllers/assistantController.js), [`backend/utils/gemini.js`](backend/utils/gemini.js) | Gemini replies forced into a JSON schema, checked against the app's catalogue, model fallback and time limits |
+| ↳ in the app | [`frontend/src/utils/promptRoom.js`](frontend/src/utils/promptRoom.js), [`frontend/src/components/AiChatPanel.jsx`](frontend/src/components/AiChatPanel.jsx) | Turns the AI's choices into legal positions with the placement rules; chat with Apply/Undo |
+| **Tests** | [`frontend/tests/`](frontend/tests/) | 306 tests, including a full scan with a simulated AR session |
+
 ## About this repository
 
 roomcraft was built as a **college team project**. This repository is my personal portfolio copy of it, prepared for a public live demo. My work on the project:
