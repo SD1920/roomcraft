@@ -6,7 +6,8 @@
   "scripts": {
     "build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build",
     "dev:backend": "npm --prefix backend run dev",
-    "dev:frontend": "npm --prefix frontend run dev"
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test": "npm --prefix frontend test"
   },
   "engines": {
     "node": "22.x"

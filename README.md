@@ -23,6 +23,16 @@ roomcraft is a full-stack web app for planning a room. An Android phone measures
 |---|---|---|
 | ![2D plan on a phone](docs/images/editor_2d_phone.jpg) | ![Ask AI panel](docs/images/ask_ai_desktop.jpg) | ![Connected rooms plan](docs/images/plan_connected_rooms.jpg) |
 
+## Tests
+
+The scanner's geometry and scan flow are covered by **306 automated tests** (Vitest), in [`frontend/tests/`](frontend/tests/). They include a complete room scan driven by a simulated AR session, and every geometry test uses rooms that are rotated and off the origin, as in a real AR session.
+
+```bash
+cd frontend
+npm install
+npm test             # 16 files, 306 tests
+```
+
 ## Tech stack
 
 | Part | Technology |

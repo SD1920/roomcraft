@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "units": "m",
+  "source": "manual",
+  "floor": [[0, 0], [3.6576, 0], [3.6576, 4.2672], [0, 4.2672]],
+  "height": 2.7,
+  "openings": [
+    { "type": "door", "wall": 0, "offset": 0.4, "width": 0.9, "sill": 0, "height": 2.03 },
+    { "type": "window", "wall": 2, "offset": 1.2, "width": 1.2, "sill": 0.9, "height": 1.2 }
+  ],
+  "quality": { "loopGapM": null, "minDepressionDeg": null, "taps": 0 }
+}
