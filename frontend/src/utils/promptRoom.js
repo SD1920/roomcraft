@@ -17,6 +17,7 @@ import {
 import {
   getHalfExtents, isInsideRoom, itemsCollide, getItemBox, getKeepOutBoxes, boxesOverlap,
   isWallItemBlocked, isOpeningBlocked, getWallLength, clampAlong, WALL_CLEARANCE, isWallMounted,
+  clampFloorPosition, clampOpeningPosition,
 } from './layout'
 import sizePresetsFile from '../roomscan/data/size_presets.json'
 
@@ -342,15 +343,108 @@ export function addPieceToRoom(want, { room, openings, furniture, style }) {
   return r ? (r.item ?? r) : null
 }
 
+// ── doors, windows and room size, for the assistant ───────────
+
+/** Standard sizes, the same as the editor's own "Add door" / "Add window" */
+export const OPENING_SIZES = {
+  door: { width: 3, height: 6.8, offset: 0 },
+  window: { width: 4, height: 4, offset: 3.5 },
+}
+
+/**
+ * A new door or window on a wall: clear of other openings and wall pieces
+ * (isOpeningBlocked), a door's swing clear of floor furniture, a window not
+ * behind a tall piece (the app's keep-out strip).
+ * @param want {opening_type: door|window, wall: front|back|left|right|any, spot: start|center|end|any}
+ * @returns {ok: true, opening} | {ok: false, message}
+ */
+export function placeOpeningForAi(want, { room, openings = [], furniture = [] }) {
+  const type = want?.opening_type === 'window' ? 'window' : want?.opening_type === 'door' ? 'door' : null
+  if (!type) return { ok: false, message: 'Only doors and windows can be added.' }
+  const size = OPENING_SIZES[type]
+  const asked = WALLS.includes(want.wall) ? want.wall : null
+  const walls = asked ? [asked] : type === 'door' ? ['front', 'left', 'right', 'back'] : ['back', 'left', 'right', 'front']
+  const floor = furniture.filter((f) => !isWallMounted(f))
+  const clearInside = (o) => {
+    const keep = getKeepOutBoxes([o], room, type === 'door' ? 0 : 100)
+    return !floor.some((f) => (type === 'door' || f.height > o.offset - 0.3) &&
+      keep.some((k) => boxesOverlap(getItemBox(f, room), k, 0)))
+  }
+  const id = freshId(type)
+  for (const wall of walls) {
+    const half = getWallLength(wall, room) / 2 - size.width / 2 - 0.3   // keep the frame off the corner
+    if (half < 0) continue
+    const spot = want.spot
+    const start = spot === 'start' ? -half : spot === 'end' ? half : 0
+    for (let k = 0; k <= 4 * half / 0.25 + 2; k++) {   // outwards both ways; from an end that is the whole wall
+      const step = Math.ceil(k / 2) * 0.25 * (k % 2 ? 1 : -1)
+      const position = start + step
+      if (Math.abs(position) > half + 1e-9) continue
+      const o = { id, type, wall, position: Math.round(position * 100) / 100, ...size, visible: true }
+      if (!isOpeningBlocked(o, { openings, furniture, room }) && clearInside(o)) return { ok: true, opening: o }
+    }
+  }
+  return { ok: false, message: `No free space ${asked ? `on the ${asked} wall` : 'on any wall'} for a ${type}.` }
+}
+
+/**
+ * Everything in a room after it is resized to width × length (ft): floor
+ * pieces stay against the walls they stood against and are pulled back inside,
+ * wall pieces and openings stay on their walls. Nothing is dropped: if a
+ * piece cannot fit, the resize is refused.
+ * @returns {ok: true, furniture, openings, overlaps} | {ok: false, message}
+ */
+export function resizeRoomContents({ width, length }, { room: old, furniture = [], openings = [] }) {
+  const w = Number(width), l = Number(length)
+  if (!(w >= MIN_SIDE && w <= MAX_SIDE && l >= MIN_SIDE && l <= MAX_SIDE)) {
+    return { ok: false, message: `Width and length must be between ${MIN_SIDE} and ${MAX_SIDE} ft.` }
+  }
+  const room = { width: w, length: l }
+  const nextFurniture = []
+  for (const f of furniture) {
+    if (isWallMounted(f)) {
+      if ((Number(f.width) || 1) > getWallLength(f.wall, room) - 0.5) return { ok: false, message: `“${f.name}” is wider than the new ${f.wall} wall.` }
+      nextFurniture.push({ ...f, position: clampAlong(f.wall, f.position, Number(f.width) || 1, room) })
+      continue
+    }
+    const rot = Number(f.rotation) || 0
+    const { hw, hd } = getHalfExtents(Number(f.width) || 1, Number(f.depth) || 1, rot)
+    let x = Number(f.x) || 0, z = Number(f.z) || 0
+    if (old) {
+      // against a wall before -> against the same wall after
+      if (Math.abs(x) >= old.width / 2 - WALL_CLEARANCE - hw - 0.3) x = Math.sign(x) * (w / 2 - WALL_CLEARANCE - hw)
+      if (Math.abs(z) >= old.length / 2 - WALL_CLEARANCE - hd - 0.3) z = Math.sign(z) * (l / 2 - WALL_CLEARANCE - hd)
+    }
+    const p = clampFloorPosition(f, x, z, rot, room)
+    const moved = { ...f, x: p.x, z: p.z }
+    if (!isInsideRoom(moved, room)) return { ok: false, message: `“${f.name}” doesn't fit in a ${w} × ${l} ft room.` }
+    nextFurniture.push(moved)
+  }
+  const nextOpenings = []
+  for (const o of openings) {
+    if ((Number(o.width) || 3) > getWallLength(o.wall, room)) return { ok: false, message: `A ${o.type} is wider than the new ${o.wall} wall.` }
+    nextOpenings.push({ ...o, position: clampOpeningPosition(o, room) })
+  }
+  const floor = nextFurniture.filter((f) => !isWallMounted(f))
+  let overlaps = 0
+  floor.forEach((a, i) => floor.slice(i + 1).forEach((b) => { if (itemsCollide(a, b, room)) overlaps++ }))
+  return { ok: true, furniture: nextFurniture, openings: nextOpenings, overlaps }
+}
+
 /** A compact description of the open room, for the assistant */
-export function summariseRoom({ roomType, width, length, height, style, floorType, wallColors, furniture, openings }) {
+export function summariseRoom({ roomType, width, length, height, style, floorType, wallColors, furniture, openings, linkedDoorIds = [], connectedRooms = 0 }) {
   const r2 = (v) => Math.round((Number(v) || 0) * 100) / 100
+  const linked = new Set(linkedDoorIds)
   return {
     room_type: roomType || null,
     width_ft: r2(width), length_ft: r2(length), height_ft: r2(height),
     style: style || null, floor_type: floorType || null,
     wall_colors: wallColors || {},
-    openings: (openings || []).map((o) => ({ type: o.type, wall: o.wall, position: r2(o.position), width: r2(o.width) })),
+    connected_rooms: connectedRooms,
+    openings: (openings || []).map((o) => ({
+      id: o.id, type: o.type, wall: o.wall, position: r2(o.position), width: r2(o.width),
+      ...(linked.has(o.id) ? { leads_to_connected_room: true } : {}),
+    })),
     furniture: (furniture || []).slice(0, 60).map((f) => (f.wallMounted
       ? { id: f.id, type: f.type, name: f.name, wall: f.wall, position: r2(f.position) }
       : { id: f.id, type: f.type, name: f.name, x: r2(f.x), z: r2(f.z), width: r2(f.width), depth: r2(f.depth) })),

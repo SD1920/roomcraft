@@ -9,15 +9,12 @@ import SaveDesignModal       from '../components/SaveDesignModal'
 import ConnectRoomModal      from '../components/ConnectRoomModal'
 import Tutorial              from '../components/Tutorial'
 import AiChatPanel           from '../components/AiChatPanel'
-import { addPieceToRoom, buildRoomFromSpec, summariseRoom } from '../utils/promptRoom'
+import { addPieceToRoom, buildRoomFromSpec, placeOpeningForAi, resizeRoomContents, summariseRoom } from '../utils/promptRoom'
 import { exportFloorPlanPdf } from '../utils/exportFloorPlan'
 import {
   computeLinks, defaultOffset, findFreeSpot, findFreeSpotRects, isFree, otherRects, resolveRoomMove, roomRect, sizeOf,
   rotateDesignQuarter,
 } from '../utils/roomLayout'
-import {
-  clampAlong, clampFloorPosition, clampOpeningPosition, getWallLength, isInsideRoom, isWallMounted, itemsCollide,
-} from '../utils/layout'
 
 import {
   furnitureDefinitions,
@@ -255,30 +252,11 @@ export default function Editor() {
     const pos = spots.filter((p) => isFree(size, p, others)).sort((a, b) => a.cost - b.cost)[0]
     if (!pos) { setError('Not enough space: it would overlap another room. Move the room first, or pick a smaller size.'); return 'space' }
 
-    // Furniture: pull floor pieces back inside, refuse if a piece is simply too big for the room
-    const nextFurniture = []
-    for (const f of d.furniture || []) {
-      if (isWallMounted(f)) {
-        if ((Number(f.width) || 1) > getWallLength(f.wall, room) - 0.5) { setError(`“${f.name}” is wider than the new ${f.wall} wall.`); return 'fit' }
-        nextFurniture.push({ ...f, position: clampAlong(f.wall, f.position, Number(f.width) || 1, room) })
-      } else {
-        const p = clampFloorPosition(f, Number(f.x) || 0, Number(f.z) || 0, Number(f.rotation) || 0, room)
-        const moved = { ...f, x: p.x, z: p.z }
-        if (!isInsideRoom(moved, room)) { setError(`“${f.name}” doesn't fit in a ${w} × ${l} ft room.`); return 'fit' }
-        nextFurniture.push(moved)
-      }
-    }
-
-    // Doors / windows: keep them on their wall
-    const nextOpenings = []
-    for (const o of d.openings || []) {
-      if ((Number(o.width) || 3) > getWallLength(o.wall, room)) { setError(`A ${o.type} is wider than the new ${o.wall} wall.`); return 'fit' }
-      nextOpenings.push({ ...o, position: clampOpeningPosition(o, room) })
-    }
-
-    const floor = nextFurniture.filter((f) => !isWallMounted(f))
-    let overlaps = 0
-    floor.forEach((a, i) => floor.slice(i + 1).forEach((b) => { if (itemsCollide(a, b, room)) overlaps++ }))
+    // Furniture pulled back inside, doors / windows kept on their wall; refused if a piece is too big
+    // (utils/promptRoom.js, shared with the assistant's resize)
+    const fit = resizeRoomContents(room, { furniture: d.furniture || [], openings: d.openings || [] })
+    if (!fit.ok) { setError(fit.message); return 'fit' }
+    const { furniture: nextFurniture, openings: nextOpenings, overlaps } = fit
 
     setError('')
     setNotice(overlaps ? `${overlaps} piece${overlaps > 1 ? 's' : ''} now overlap: drag them apart.` : '')
@@ -328,13 +306,28 @@ export default function Editor() {
   // ── AI assistant (components/AiChatPanel.jsx) ─────────────
   // What the assistant sees of the open (main) room, and how its one-tap
   // suggestions are applied. Every change returns an undo.
+  // doors of the main room that a connected room hangs off
+  const linkedDoorIds = connections.filter((c) => !c.parentUid && c.doorId).map((c) => c.doorId)
   const aiRoomSummary = () => summariseRoom({
     roomType: roomData.roomType, width: mainRoom.width, length: mainRoom.length, height: mainRoom.height,
     style: appliedStyle, floorType, wallColors, furniture, openings,
+    linkedDoorIds, connectedRooms: connections.length,
   })
 
+  // An action is checked again against the room as it is NOW (it may have
+  // changed since the assistant answered); a bad one can never crash the editor.
   const applyAiAction = (a) => {
+    try {
+      return applyAiActionUnsafe(a)
+    } catch (err) {
+      console.error('[ai action]', err)
+      return { ok: false, message: 'That suggestion could not be applied.' }
+    }
+  }
+
+  const applyAiActionUnsafe = (a) => {
     const prevFurniture = furniture
+    const prevOpenings = openings
     const prevLook = { wallColors: { ...wallColors }, floorType }
     // the 3D view takes colours and floor from the "loaded look"; a new version makes it apply them
     const setLook = (look) => { setLoadedLook(look); setDesignVersion((v) => v + 1) }
@@ -373,15 +366,51 @@ export default function Editor() {
       }
       case 'furnish_room': {
         // keeps the room's size, doors and windows: a scanned room keeps its real ones
+        // an empty list: the app furnishes it for the room type, like "Generate room"
         const d = buildRoomFromSpec(
-          { style: a.style || appliedStyle, furniture: a.furniture },
+          { style: a.style || appliedStyle, furniture: a.furniture || [], room_type: a.room_type || roomData.roomType || null },
           { room_width: mainRoom.width, room_length: mainRoom.length, wall_height: mainRoom.height, openings },
         )
+        if (!d.furniture.length) return { ok: false, message: 'Nothing fitted in this room.' }
         setFurniture(d.furniture)
         return {
           ok: true,
           message: d.notes.skipped.length ? `No space for: ${d.notes.skipped.join(', ')}` : '',
           undo: () => setFurniture(prevFurniture),
+        }
+      }
+      case 'add_opening': {
+        const r = placeOpeningForAi(a, { room: mainRoom, openings, furniture })
+        if (!r.ok) return r
+        setOpenings([...openings, r.opening])
+        return { ok: true, undo: () => setOpenings((list) => list.filter((o) => o.id !== r.opening.id)) }
+      }
+      case 'remove_opening': {
+        const o = openings.find((x) => x.id === a.opening_id)
+        if (!o) return { ok: false, message: 'That door or window is no longer in the room.' }
+        if (linkedDoorIds.includes(o.id)) return { ok: false, message: 'A connected room is attached to that door: remove the room first.' }
+        if (o.type === 'door' && openings.filter((x) => x.type === 'door').length === 1) return { ok: false, message: 'That is the room\'s only door, so it stays.' }
+        setOpenings(openings.filter((x) => x.id !== o.id))
+        return { ok: true, undo: () => setOpenings(prevOpenings) }
+      }
+      case 'resize_room': {
+        if (connections.length) return { ok: false, message: 'This room has connected rooms: resize it by hand so they stay docked.' }
+        const width = Number(a.width_ft) || mainRoom.width
+        const length = Number(a.length_ft) || mainRoom.length
+        const r = resizeRoomContents({ width, length }, { room: mainRoom, furniture, openings })
+        if (!r.ok) return r
+        if (r.overlaps) return { ok: false, message: `At ${width} × ${length} ft some pieces would overlap: move them or pick a bigger size.` }
+        const prevSize = { width: roomData.width, length: roomData.length }
+        setRoomData((d) => ({ ...d, width: String(width), length: String(length) }))
+        setFurniture(r.furniture)
+        setOpenings(r.openings)
+        return {
+          ok: true,
+          undo: () => {
+            setRoomData((d) => ({ ...d, ...prevSize }))
+            setFurniture(prevFurniture)
+            setOpenings(prevOpenings)
+          },
         }
       }
       default:

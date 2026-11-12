@@ -13,8 +13,14 @@
 // styles, floors, paints), sent by the frontend so it never goes out of step
 // with the app's furniture list. It only constrains the model's answer; every
 // answer is checked against it again here.
+//
+// Reliability: the question goes to many models across providers
+// (utils/llm/router.js), and the first answer that passes the checks below
+// wins. If every model fails, chat answers in "quick mode"
+// (utils/quickIntent.js): simple rules for the common requests.
 
-import { askGeminiJson, GeminiError } from '../utils/gemini.js'
+import { askJson, AllModelsFailed } from '../utils/llm/router.js'
+import { quickIntent } from '../utils/quickIntent.js'
 
 const WALLS = ['front', 'back', 'left', 'right']
 const SPOTS = ['start', 'center', 'end', 'corner', 'any']
@@ -168,7 +174,10 @@ Only list doors and windows they mention; otherwise leave "openings" empty.
 "reply": one or two short, friendly sentences saying what you made.
 What the app has: ${catalogText(cat)}`
 
-    const answer = await askGeminiJson({ system, turns: [...history, { role: 'user', text: prompt }], schema })
+    const { value: answer } = await askJson(
+      { system, turns: [...history, { role: 'user', text: prompt }], schema },
+      (a) => (a && typeof a === 'object' && Array.isArray(a.furniture) ? { ok: true, value: a } : { ok: false, reason: 'no furniture list' }),
+    )
 
     const spec = {
       room_type: cat.room_types.some((r) => r.id === answer.room_type) ? answer.room_type : null,
@@ -192,7 +201,154 @@ What the app has: ${catalogText(cat)}`
 
 // ── POST /api/assistant/chat ──────────────────────────────────
 
-const ACTION_KINDS = ['set_wall_color', 'set_floor', 'add_furniture', 'remove_furniture', 'furnish_room']
+export const ACTION_KINDS = [
+  'set_wall_color', 'set_floor', 'add_furniture', 'remove_furniture', 'furnish_room',
+  'add_opening', 'remove_opening', 'resize_room',
+]
+const OPENING_SPOTS = ['start', 'center', 'end', 'any']
+const MAX_ACTIONS = 4
+
+// A request to change something. An answer to one without any usable action
+// is a model describing a change it cannot make (6 Nov: "I have transformed
+// this room into a cozy study", no action), so the next model is asked.
+const WANTS_CHANGE = /\b(furnish|add|put|place|paint|colou?r|change|make|replace|remove|delete|move|floor|walls?|doors?|windows?|bigger|smaller|wider|longer|resize|enlarge|shrink)\b/i
+
+const ft = (v) => +Number(v).toFixed(2)
+
+/** A short label when a model leaves it out (some do) */
+function defaultLabel(a, cat) {
+  const piece = (id) => cat.furniture.find((f) => f.id === id)?.name || id
+  switch (a.kind) {
+    case 'set_wall_color': return `Paint ${a.wall === 'all' ? 'all walls' : `the ${a.wall} wall`}`
+    case 'set_floor': return `Change the floor to ${cat.floors.find((f) => f.id === a.floor_type)?.name || a.floor_type}`
+    case 'add_furniture': return `Add ${a.piece.count > 1 ? `${a.piece.count} × ` : 'a '}${piece(a.piece.type)}`
+    case 'remove_furniture': return 'Remove that piece'
+    case 'furnish_room': return 'Furnish the room'
+    case 'add_opening': return `Add a ${a.opening_type}${a.wall !== 'any' ? ` on the ${a.wall} wall` : ''}`
+    case 'remove_opening': return 'Remove that opening'
+    case 'resize_room': return `Resize the room to ${a.width_ft} × ${a.length_ft} ft`
+    default: return 'Apply'
+  }
+}
+
+/**
+ * Every action of an answer, checked against the catalog and the open room.
+ * Unknown ids, bad colours, impossible sizes are dropped or repaired.
+ * @param ctx {cat, room} room = the frontend's summariseRoom()
+ */
+export function cleanActions(answer, { cat, room = {} }) {
+  const furnitureIds = new Set((Array.isArray(room.furniture) ? room.furniture : []).map((f) => String(f?.id)))
+  const openings = Array.isArray(room.openings) ? room.openings : []
+  const width = Number(room.width_ft) || null, length = Number(room.length_ft) || null
+  const reply = `${answer?.reply || ''}`.toLowerCase()
+  const paintByName = (s) => cat.paints.find((p) => String(s || '').toLowerCase().includes(p.name.toLowerCase()))?.color ?? null
+
+  const out = []
+  for (const a of (Array.isArray(answer?.actions) ? answer.actions : []).slice(0, 8)) {
+    if (!a || !ACTION_KINDS.includes(a.kind)) continue
+    let action = null
+    if (a.kind === 'set_wall_color') {
+      // a colour given by name, or none given: the paint the label or reply names
+      const color = HEX.test(a.color || '') ? a.color : paintByName(a.color) ?? paintByName(a.label) ?? paintByName(reply)
+      if (color) action = { kind: a.kind, wall: ['all', ...WALLS].includes(a.wall) ? a.wall : 'all', color: color.toLowerCase() }
+    } else if (a.kind === 'set_floor') {
+      if (cat.floors.some((f) => f.id === a.floor_type)) action = { kind: a.kind, floor_type: a.floor_type }
+    } else if (a.kind === 'add_furniture') {
+      const piece = cleanPiece(a.piece, cat)
+      if (piece) action = { kind: a.kind, piece }
+    } else if (a.kind === 'remove_furniture') {
+      if (furnitureIds.has(String(a.remove_id))) action = { kind: a.kind, remove_id: String(a.remove_id) }
+    } else if (a.kind === 'furnish_room') {
+      // an empty list is fine: the app then furnishes it for the room type
+      const furniture = (Array.isArray(a.furniture) ? a.furniture : []).slice(0, 30).map((p) => cleanPiece(p, cat)).filter(Boolean)
+      const typeOk = (t) => cat.room_types.some((r) => r.id === t)
+      action = {
+        kind: a.kind, furniture,
+        style: cat.styles.some((s) => s.id === a.style) ? a.style : null,
+        room_type: typeOk(a.room_type) ? a.room_type : typeOk(room.room_type) ? room.room_type : null,
+      }
+    } else if (a.kind === 'add_opening') {
+      if (['door', 'window'].includes(a.opening_type)) {
+        action = {
+          kind: a.kind, opening_type: a.opening_type,
+          wall: WALLS.includes(a.wall) ? a.wall : 'any',
+          spot: OPENING_SPOTS.includes(a.spot) ? a.spot : 'center',
+        }
+      }
+    } else if (a.kind === 'remove_opening') {
+      const o = openings.find((x) => String(x?.id) === String(a.opening_id))
+      if (o && !o.leads_to_connected_room) action = { kind: a.kind, opening_id: String(o.id) }
+    } else if (a.kind === 'resize_room') {
+      const w = num(a.width_ft, 6, 60) ?? width, l = num(a.length_ft, 6, 60) ?? length
+      if (w && l && (Math.abs(w - (width ?? 0)) >= 0.1 || Math.abs(l - (length ?? 0)) >= 0.1)) {
+        action = { kind: a.kind, width_ft: ft(w), length_ft: ft(l) }
+      }
+    }
+    if (!action) continue
+    action.label = text(a.label, 80) || defaultLabel(action, cat)
+    out.push(action)
+    if (out.length >= MAX_ACTIONS) break
+  }
+  return out
+}
+
+/** The chat answer's shape (Gemini responseSchema; written as a template for other models) */
+function chatSchema(cat) {
+  return {
+    type: 'OBJECT',
+    properties: {
+      reply: { type: 'STRING' },
+      actions: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            kind: { type: 'STRING', enum: ACTION_KINDS },
+            label: { type: 'STRING' },
+            wall: { type: 'STRING', enum: ['all', ...WALLS, 'any'], nullable: true },
+            color: { type: 'STRING', nullable: true },
+            floor_type: nullableEnum(cat.floors.map((f) => f.id)),
+            piece: { ...pieceSchema(cat), nullable: true },
+            remove_id: { type: 'STRING', nullable: true },
+            style: nullableEnum(cat.styles.map((s) => s.id)),
+            room_type: nullableEnum(cat.room_types.map((r) => r.id)),
+            furniture: { type: 'ARRAY', nullable: true, items: pieceSchema(cat) },
+            opening_type: nullableEnum(['door', 'window']),
+            spot: nullableEnum(['start', 'center', 'end']),
+            opening_id: { type: 'STRING', nullable: true },
+            width_ft: { type: 'NUMBER', nullable: true },
+            length_ft: { type: 'NUMBER', nullable: true },
+          },
+          required: ['kind', 'label'],
+        },
+      },
+    },
+    required: ['reply', 'actions'],
+  }
+}
+
+function chatSystem(cat, room) {
+  return `You are a friendly interior-design assistant inside a room-design app. You can see the room the person has open (JSON below; lengths in feet, the room centred on 0, the front wall at -z).
+Answer in at most 80 words, specific to this room: its size, its windows (light), its colours and furniture. Plain words, no markdown.
+You cannot change the room yourself: a change only happens when the person taps one of your "actions". So:
+- every change you suggest or are asked for MUST be in "actions" (a colour you recommend -> set_wall_color, a piece you recommend -> add_furniture, "furnish it as…" -> furnish_room);
+- never say you have done, made or changed something; say what the buttons below will do ("Tap below to…");
+- do not suggest a piece the room already has unless they want another one.
+Actions (at most ${MAX_ACTIONS}); give only the fields each one needs, the rest null:
+- set_wall_color: "wall" (all, front, back, left or right) and "color" (hex)
+- set_floor: "floor_type"
+- add_furniture: "piece" (type, size, count, wall, spot, near)
+- remove_furniture: "remove_id", one of the room's furniture ids
+- furnish_room: "room_type", "style" and "furniture" (a full list of pieces, or [] to let the app choose for the room type): replaces all the furniture, for requests like "furnish this room as a cozy study" or "make it a hostel room for 3"; the room's size, doors and windows stay
+- add_opening: "opening_type" (door or window), "wall" (front, back, left, right or any) and "spot" (start, center or end); the app finds a free place with standard sizes
+- remove_opening: "opening_id", one of the room's openings ids (not one with "leads_to_connected_room")
+- resize_room: "width_ft" and "length_ft", the new size (6 to 60 ft); "bigger" means about 2 ft more each way. Not possible when "connected_rooms" is more than 0: say so instead
+Each action needs a short "label" saying what it does, e.g. "Paint all walls Sage Green".
+Questions without a concrete change, or not about the room: answer briefly, no actions.
+${LAYOUT_RULES}
+What the app has: ${catalogText(cat)}
+The open room: ${JSON.stringify(room).slice(0, 12000)}`
+}
 
 export const chatRoom = async (req, res) => {
   try {
@@ -200,102 +356,33 @@ export const chatRoom = async (req, res) => {
     if (!message) return res.status(400).json({ message: 'Type a message first.' })
     const cat = readCatalog(req.body?.catalog)
     const room = req.body?.room && typeof req.body.room === 'object' ? req.body.room : {}
-    const roomJson = JSON.stringify(room).slice(0, 12000)
-    const furnitureIds = new Set((Array.isArray(room.furniture) ? room.furniture : []).map((f) => String(f?.id)))
+    const wantsChange = WANTS_CHANGE.test(message)
 
-    const schema = {
-      type: 'OBJECT',
-      properties: {
-        reply: { type: 'STRING' },
-        actions: {
-          type: 'ARRAY',
-          items: {
-            type: 'OBJECT',
-            properties: {
-              kind: { type: 'STRING', enum: ACTION_KINDS },
-              label: { type: 'STRING' },
-              wall: { type: 'STRING', enum: ['all', ...WALLS], nullable: true },
-              color: { type: 'STRING', nullable: true },
-              floor_type: nullableEnum(cat.floors.map((f) => f.id)),
-              piece: { ...pieceSchema(cat), nullable: true },
-              remove_id: { type: 'STRING', nullable: true },
-              style: nullableEnum(cat.styles.map((s) => s.id)),
-              furniture: { type: 'ARRAY', nullable: true, items: pieceSchema(cat) },
-            },
-            required: ['kind', 'label', 'wall', 'color', 'floor_type', 'piece', 'remove_id', 'style', 'furniture'],
-          },
-        },
-      },
-      required: ['reply', 'actions'],
+    // the router's test for an answer: readable, and with an action when one was asked for
+    const validate = (answer) => {
+      if (!answer || typeof answer !== 'object') return { ok: false, reason: 'not an object' }
+      const reply = text(answer.reply, 800)
+      const actions = cleanActions(answer, { cat, room })
+      if (!reply && !actions.length) return { ok: false, reason: 'empty answer' }
+      const value = { reply: reply || 'Tap below to apply:', actions }
+      if (wantsChange && !actions.length) return { ok: false, reason: 'no usable action', soft: value }
+      return { ok: true, value }
     }
 
-    const system = `You are a friendly interior-design assistant inside a room-design app. You can see the room the person has open (JSON below; lengths in feet, the room centred on 0, the front wall at -z).
-Answer in at most 80 words, specific to this room: its size, its windows (light), its colours and furniture. Plain words, no markdown.
-You cannot change the room yourself: a change only happens when the person taps one of your "actions". So:
-- every change you suggest or are asked for MUST be in "actions" (a colour you recommend -> set_wall_color, a piece you recommend -> add_furniture, "furnish it as…" -> furnish_room);
-- never say you have done, made or changed something; say what the buttons below will do ("Tap below to…");
-- do not suggest a piece the room already has unless they want another one.
-Actions (at most 4):
-- set_wall_color: "wall" (all, front, back, left or right) and "color"
-- set_floor: "floor_type"
-- add_furniture: "piece" (type, size, count, wall, spot, near)
-- remove_furniture: "remove_id", one of the room's furniture ids
-- furnish_room: "furniture" (a full list of pieces) and "style": replaces all the furniture, for requests like "furnish this room as a cozy study"; the room's size, doors and windows stay
-Each action needs a short "label" saying what it does, e.g. "Paint all walls Sage Green".
-Questions without a concrete change, or not about the room: answer briefly, no actions.
-${LAYOUT_RULES}
-What the app has: ${catalogText(cat)}
-The open room: ${roomJson}`
-
-    const turns = [...readHistory(req.body?.history), { role: 'user', text: message }]
-    let answer = await askGeminiJson({ system, turns, schema, temperature: 0.5 })
-    // A request for a change that comes back without any action is the model
-    // describing a change it cannot make (6 Nov: "I have transformed this room
-    // into a cozy study", no action). Ask once more, saying what is missing.
-    const wantsChange = /(furnish|add|put|place|paint|colou?r|change|make|replace|remove|move|floor|wall)/i.test(message)
-    if (wantsChange && !(Array.isArray(answer.actions) && answer.actions.length)) {
-      answer = await askGeminiJson({
-        system,
-        turns: [...turns, { role: 'model', text: JSON.stringify(answer) }, { role: 'user', text: 'You gave no actions, so nothing can be applied. Answer again with the actions for what I asked.' }],
-        schema,
-        temperature: 0.3,
-      })
+    let result
+    try {
+      result = await askJson(
+        { system: chatSystem(cat, room), turns: [...readHistory(req.body?.history), { role: 'user', text: message }], schema: chatSchema(cat), temperature: 0.4 },
+        validate,
+      )
+    } catch (err) {
+      if (!(err instanceof AllModelsFailed)) throw err
+      console.warn('[assistant chat] quick mode:', err.message)
+      const q = quickIntent(message, cat, room)
+      return res.status(200).json({ reply: q.reply, actions: cleanActions(q, { cat, room }), quick: true })
     }
-
-    if (process.env.DEBUG_ASSISTANT) console.log('[assistant chat raw]', JSON.stringify(answer))
-    const actions = []
-    for (const a of (Array.isArray(answer.actions) ? answer.actions : []).slice(0, 4)) {
-      const label = text(a?.label, 80)
-      if (!ACTION_KINDS.includes(a?.kind) || !label) continue
-      if (a.kind === 'set_wall_color') {
-        // no colour given: the paint its label names ("Paint all walls Sage Green")
-        if (!HEX.test(a.color || '')) {
-          const words = `${label} ${answer.reply || ''}`.toLowerCase()
-          a.color = cat.paints.find((p) => words.includes(p.name.toLowerCase()))?.color ?? null
-        }
-        if (!HEX.test(a.color || '')) continue
-        actions.push({ kind: a.kind, label, wall: ['all', ...WALLS].includes(a.wall) ? a.wall : 'all', color: a.color })
-      } else if (a.kind === 'set_floor') {
-        if (!cat.floors.some((f) => f.id === a.floor_type)) continue
-        actions.push({ kind: a.kind, label, floor_type: a.floor_type })
-      } else if (a.kind === 'add_furniture') {
-        const piece = cleanPiece(a.piece, cat)
-        if (piece) actions.push({ kind: a.kind, label, piece })
-      } else if (a.kind === 'remove_furniture') {
-        if (furnitureIds.has(String(a.remove_id))) actions.push({ kind: a.kind, label, remove_id: String(a.remove_id) })
-      } else if (a.kind === 'furnish_room') {
-        let furniture = (Array.isArray(a.furniture) ? a.furniture : []).slice(0, 30).map((p) => cleanPiece(p, cat)).filter(Boolean)
-        let style = cat.styles.some((s) => s.id === a.style) ? a.style : null
-        if (!furniture.length) {
-          // no list given: the planner chooses one, for this room's type and size
-          const spec = await planSpec(`${message} (room: ${room.room_type || 'room'}, ${room.width_ft} x ${room.length_ft} ft; list the furniture)`, [], cat)
-          furniture = spec.furniture
-          style = style ?? spec.style
-        }
-        if (furniture.length) actions.push({ kind: a.kind, label, furniture, style })
-      }
-    }
-    return res.status(200).json({ reply: text(answer.reply, 800), actions })
+    if (process.env.DEBUG_ASSISTANT) console.log('[assistant chat]', result.model, result.soft ? '(soft)' : '', result.tried.join('; '))
+    return res.status(200).json({ ...result.value, model: result.model })
   } catch (err) {
     return fail(res, err, 'chat')
   }
@@ -303,9 +390,9 @@ The open room: ${roomJson}`
 
 function fail(res, err, what) {
   if (err.status === 400) return res.status(400).json({ message: err.message })
-  if (err instanceof GeminiError) {
+  if (err instanceof AllModelsFailed) {
     console.error(`[assistant ${what}]`, err.message)
-    return res.status(err.status).json({ message: err.message })
+    return res.status(503).json({ message: 'The AI is very busy right now (every model we tried was overloaded). Please try again in a minute.' })
   }
   console.error(`[assistant ${what}]`, err)
   return res.status(500).json({ message: 'Something went wrong. Please try again.' })

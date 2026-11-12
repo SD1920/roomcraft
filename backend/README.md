@@ -40,8 +40,12 @@ After a laptop restart only the database container needs starting again:
 | `NODE_ENV` | `development` or `production` | `development` |
 | `CLIENT_URL` | frontend origin allowed by CORS | `http://localhost:5173` |
 | `MAX_AVATAR_SIZE` | bytes | `2097152` |
-| `GEMINI_API_KEY` | AI room assistant, optional ([aistudio.google.com](https://aistudio.google.com); free tier, no billing) | `AIza...` |
-| `GEMINI_MODELS` | optional, comma-separated model chain tried in order (busy, rate-limited or retired models are skipped); default in `utils/gemini.js` | `gemini-3.1-flash-lite,gemini-flash-lite-latest` |
+| `GEMINI_API_KEY` | AI assistant and camera guess, optional ([aistudio.google.com](https://aistudio.google.com); free tier, no billing) | `AIza...` |
+| `GROQ_API_KEY` | AI assistant, optional ([console.groq.com](https://console.groq.com)) | `gsk_...` |
+| `OPENROUTER_API_KEY` | AI assistant, optional ([openrouter.ai](https://openrouter.ai), free models) | `sk-or-...` |
+| `HF_TOKEN` | AI assistant, optional (Hugging Face token with "Make calls to Inference Providers") | `hf_...` |
+| `AI_MODELS` | optional, replaces the assistant's model list: comma-separated `provider:model`; default in `utils/llm/models.js` | `groq:llama-3.3-70b-versatile,gemini:gemini-3.1-flash-lite` |
+| `GEMINI_MODELS` | optional, the camera guess's Gemini chain; default in `utils/gemini.js` | `gemini-3.1-flash-lite,gemini-flash-lite-latest` |
 
 `DATABASE_URL`, `JWT_SECRET` and `RESEND_API_KEY` are required: the server
 will not start without them. Never commit `.env` (add it to `.gitignore`); if
@@ -104,11 +108,35 @@ All bodies are JSON. Routes marked 🔒 need `Authorization: Bearer <token>`.
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | POST | `/api/assistant/plan` | `prompt`, `history?`, `catalog` | `{ spec }`: room type, size, style, floor, wall colours, pieces with placement hints (wall, spot, near), assumptions, an optional question |
-| POST | `/api/assistant/chat` | `message`, `history?`, `room`, `catalog` | `{ reply, actions }`: one-tap changes: `set_wall_color`, `set_floor`, `add_furniture`, `remove_furniture`, `furnish_room` |
+| POST | `/api/assistant/chat` | `message`, `history?`, `room`, `catalog` | `{ reply, actions, model?, quick? }`: one-tap changes (below) |
 
-`catalog` (sent by the frontend) is what the app can draw: furniture types and sizes, room types, styles, floors, paints. The model can only answer with those ids, and every answer is checked against them again (`controllers/assistantController.js`). The model never gives coordinates; the frontend places the pieces (`src/utils/promptRoom.js`).
+Chat actions:
 
-Gemini is called by `utils/gemini.js`: busy answers are retried, then the other model is tried, within 75 s. Limit: 12 requests a minute per user. Without `GEMINI_API_KEY` both routes answer 503 "not set up"; the rest of the app works. Set `DEBUG_ASSISTANT=1` to log the model's raw chat answers.
+| Action | Fields | Applied by the editor |
+|---|---|---|
+| `set_wall_color` | `wall` (all/front/back/left/right), `color` | paints the wall(s) |
+| `set_floor` | `floor_type` | changes the floor |
+| `add_furniture` | `piece` {type, size, count, wall, spot, near} | placed with the layout rules; "no space" if it doesn't fit |
+| `remove_furniture` | `remove_id` | |
+| `furnish_room` | `room_type`, `style`, `furniture` (may be empty: the app chooses for the room type) | replaces the furniture; size, doors and windows stay |
+| `add_opening` | `opening_type` (door/window), `wall`, `spot` | standard sizes; a free place on the wall, a door's swing clear of furniture, a window not behind a tall piece |
+| `remove_opening` | `opening_id` | refused for a door a connected room hangs off, or the room's only door |
+| `resize_room` | `width_ft`, `length_ft` (6–60) | pieces stay against their walls; refused if anything wouldn't fit or would overlap, or the room has connected rooms |
+
+Every applied action can be undone. The editor checks each action again against the room as it is when tapped.
+
+`catalog` (sent by the frontend) is what the app can draw: furniture types and sizes, room types, styles, floors, paints. The model can only answer with those ids, and every answer is checked against them again (`cleanActions` in `controllers/assistantController.js`). The model never gives coordinates; the frontend places everything (`src/utils/promptRoom.js`).
+
+**Many models, one answer** (`utils/llm/`):
+
+- `models.js`: about 15 models across Gemini, Groq, OpenRouter and Hugging Face. A model is used only when its provider's key is set; `AI_MODELS` replaces the list.
+- `providers.js`: Gemini is forced into the JSON schema (`responseSchema`). The others (OpenAI-style APIs) get the schema written into the prompt, JSON mode where offered, and the JSON is pulled out of the reply.
+- `router.js`: a hedged race. The best model starts; if no good answer has come after 3.5 s, the next one starts too (at most 3 at once). The first answer that **passes the checks** wins and the rest are cancelled. Each attempt has 12 s, the whole call 45 s. A busy or slow model is skipped for 60 s, a retired one or a refused key for 10 min, and the model that answered last goes first.
+- An answer to a change request with no usable action ("I have changed the room" with nothing to apply) does not count; the next model is asked. After 3 such answers the first one is used, so a request the app can't do doesn't use up the chain.
+
+**Quick mode** (`utils/quickIntent.js`): when every model fails, or no key is set, chat still answers with simple rules for the common requests (paint, floor, add/remove furniture, furnish, doors and windows, resize), marked `quick: true` and shown with a "Quick mode" tag. Its actions go through the same checks.
+
+Limit: 12 requests a minute per user. Set `DEBUG_ASSISTANT=1` to log which model answered and what was tried. `npm run ai:eval -- --url https://<site>` scores about 30 typical requests against a deployment (right action, median and slowest time); `-- --models` scores each model alone with the keys in your shell.
 
 ### Designs 🔒
 

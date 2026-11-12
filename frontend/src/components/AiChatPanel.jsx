@@ -12,7 +12,8 @@ export const AI_NOTES_KEY = (id) => `rc_ai_notes_${id}`
 const STARTERS = [
   'What wall colour would suit this room?',
   'What else should I add?',
-  'Make it feel bigger',
+  'Add a window on the left wall',
+  'Make the room 2 ft wider',
   'Furnish this room as a cozy study',
 ]
 
@@ -56,8 +57,8 @@ export default function AiChatPanel({ designId, getRoom, onApply, open, onOpenCh
     setText('')
     setBusy(true)
     try {
-      const { reply, actions } = await chatAboutRoom(message, history, getRoom())
-      setMessages((m) => [...m, { role: 'model', text: reply, actions: actions.map((a) => ({ ...a, state: 'idle' })) }])
+      const { reply, actions, quick } = await chatAboutRoom(message, history, getRoom())
+      setMessages((m) => [...m, { role: 'model', text: reply, quick: Boolean(quick), actions: (actions || []).map((a) => ({ ...a, state: 'idle' })) }])
     } catch (err) {
       setMessages((m) => [...m, { role: 'model', text: err.message, error: true }])
     } finally {
@@ -107,6 +108,12 @@ export default function AiChatPanel({ designId, getRoom, onApply, open, onOpenCh
               <div key={mi} className={m.role === 'user' ? 'flex justify-end' : ''}>
                 <div className={`max-w-[90%] rounded-xl px-3 py-2 whitespace-pre-line ${
                   m.role === 'user' ? 'bg-accent text-white' : m.error ? 'bg-red-500/10 text-red-500' : 'bg-surface border border-border'}`}>
+                  {m.quick && (
+                    <span title="Every AI model was busy, so simple rules understood this message"
+                      className="inline-block mb-1 mr-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600">
+                      Quick mode
+                    </span>
+                  )}
                   {m.text}
                   {m.actions?.length > 0 && (
                     <div className="mt-2 flex flex-col gap-1.5">
@@ -131,7 +138,7 @@ export default function AiChatPanel({ designId, getRoom, onApply, open, onOpenCh
                 </div>
               </div>
             ))}
-            {busy && <p className="text-xs opacity-60">Thinking… (can take 10–20 seconds)</p>}
+            {busy && <p className="text-xs opacity-60">Thinking… (usually a few seconds)</p>}
             <div ref={endRef} />
           </div>
 

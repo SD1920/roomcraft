@@ -7,7 +7,9 @@
     "build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "test": "npm --prefix frontend test"
+    "test": "npm run test:backend && npm --prefix frontend test",
+    "test:backend": "node --test \"backend/tests/*.test.js\"",
+    "ai:eval": "node backend/scripts/ai_eval.js"
   },
   "engines": {
     "node": "22.x"

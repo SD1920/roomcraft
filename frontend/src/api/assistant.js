@@ -2,9 +2,9 @@
 import api from './api'
 import { assistantCatalog } from '../utils/promptRoom'
 
-// the model can take a while on the free tier and retries when it is busy;
-// one chat answer can need two calls (backend budget 75 s each)
-const AI_TIMEOUT_MS = 120_000
+// the backend answers within its 45 s budget (many models raced, then quick
+// mode); the serverless limit is 60 s
+const AI_TIMEOUT_MS = 65_000
 
 const errorText = (err) =>
   err?.response?.data?.message ||

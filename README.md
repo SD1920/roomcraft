@@ -13,7 +13,7 @@ roomcraft is a full-stack web app for planning a room. An Android phone measures
 - **AR room scanner (WebXR):** tap the corners of each wall to measure the room's size and ceiling height, then add doors, windows and furniture. It works in Chrome on Android with ARCore and needs no app install. In testing, a ceiling measured 2.72 m against 2.74 m by tape.
 - **2D and 3D editor:** 14 room types and 86 furniture types. You can drag pieces, rotate them to any angle (they snap straight near 90°), give sizes to any decimal, and connect rooms through doors. Every piece and room is labelled with its size.
 - **Placement rules:** pieces keep a gap from each other, sit flush against walls and stay out of door swings. The same rules are used by the editor, the room generator, the AI and the scanner.
-- **✨ Ask AI (Google Gemini):** suggestions for colours, furniture and whole layouts, each with Apply and Undo. The model only chooses from the app's catalogue; the app does all the placing, so AI-made rooms follow the same rules.
+- **✨ Ask AI:** suggestions for colours, furniture, whole layouts, doors and windows, and room size, each with Apply and Undo. The model only chooses from the app's catalogue; the app does all the placing, so AI-made rooms follow the same rules. Requests go to about 15 models across Gemini, Groq, OpenRouter and Hugging Face, and the first answer that passes the app's checks is used; if every model is down, simple rules ("quick mode") still handle common requests.
 - **Guess from camera:** during a scan, an on-device detector (MediaPipe) and Gemini suggest what a piece of furniture is.
 - **PDF floor plans:** A4 export with every piece labelled and size lines on every room.
 - **Accounts:** sign-up, JWT login, profile with photo, saved designs.
@@ -25,12 +25,13 @@ roomcraft is a full-stack web app for planning a room. An Android phone measures
 
 ## Tests
 
-The scanner's geometry and scan flow are covered by **306 automated tests** (Vitest), in [`frontend/tests/`](frontend/tests/). They include a complete room scan driven by a simulated AR session, and every geometry test uses rooms that are rotated and off the origin, as in a real AR session.
+The scanner's geometry and scan flow are covered by **306 automated tests** (Vitest), in [`frontend/tests/`](frontend/tests/). They include a complete room scan driven by a simulated AR session, and every geometry test uses rooms that are rotated and off the origin, as in a real AR session. A further 14 cover the assistant's door, window and resize actions.
+
+The AI assistant's backend has **76 tests** (Node's built-in runner, no keys or network needed) in [`backend/tests/`](backend/tests/): the model router with fake providers (busy, slow, retired, bad JSON, a hedged race, the time budget), the provider adapters, the checks on every action, and quick mode on 44 typical requests.
 
 ```bash
-cd frontend
-npm install
-npm test             # 16 files, 306 tests
+npm --prefix frontend install
+npm test             # backend 76 tests, then frontend 17 files, 320 tests
 ```
 
 ## Tech stack
@@ -40,7 +41,7 @@ npm test             # 16 files, 306 tests
 | Frontend | React 19, Vite, Tailwind CSS, three.js (React Three Fiber, drei) |
 | Backend | Node.js, Express, PostgreSQL, JWT, bcrypt |
 | AR scanner | WebXR (immersive-ar, hit test, anchors), three.js, MediaPipe Tasks Vision |
-| AI | Google Gemini with JSON schemas (assistant and camera guess) |
+| AI | Assistant: Gemini, Groq, OpenRouter and Hugging Face models behind one router, JSON answers checked against the catalogue. Camera guess: Gemini |
 | Hosting | Vercel (site + serverless API), Neon (PostgreSQL) |
 
 ```
@@ -49,7 +50,7 @@ browser (laptop or phone)
    ▼
 Vercel ── static site: React app (/) and AR scanner (/scan.html)
    └──── serverless function (api/index.js) → Express API (backend/) ──► Neon PostgreSQL
-                                                    └──────────────────► Google Gemini
+                                                    └──────────────────► Gemini · Groq · OpenRouter · Hugging Face
 ```
 
 ## Project structure
@@ -62,9 +63,12 @@ roomcraft/
 │   ├── src/components/        2D plan, 3D viewer, AI chat panel, guided tour
 │   ├── src/pages/             one file per page (editor, dashboard, login…)
 │   ├── server/                Gemini call for the camera guess
-│   ├── tests/                 306 scanner tests (Vitest)
+│   ├── tests/                 306 scanner tests + 14 AI action tests (Vitest)
 │   └── scan.html              the scanner page
 ├── backend/                   Express API: accounts, designs, AI assistant
+│   ├── utils/llm/             the model roster, provider adapters and router
+│   ├── utils/quickIntent.js   quick mode: rules for when no model answers
+│   └── tests/                 76 assistant tests (node --test)
 ├── api/index.js               Vercel serverless entry point (runs backend/app.js)
 ├── docs/                      project report, presentation, screenshots
 └── vercel.json                build and routing on Vercel
@@ -77,9 +81,11 @@ roomcraft/
 | **AR room scanner** (computer vision, geometry) | [`frontend/src/roomscan/`](frontend/src/roomscan/): see its [README](frontend/src/roomscan/README.md) | WebXR session and hit tests; fits a line to each wall and the best rectangle to all four; ceiling height; doors, windows and furniture from taps |
 | ↳ core maths | [`scan/room_scan.js`](frontend/src/roomscan/scan/room_scan.js), [`geometry/floor.js`](frontend/src/roomscan/geometry/floor.js), [`geometry/ray.js`](frontend/src/roomscan/geometry/ray.js) | Pure functions, no browser needed; covered by the tests |
 | **Camera furniture detection** (deep learning, vision LLM) | [`frontend/src/roomscan/detect/`](frontend/src/roomscan/detect/), [`frontend/server/gemini_detect.js`](frontend/server/gemini_detect.js) | On-device MediaPipe EfficientDet-Lite0 model, pixel → floor position, merging repeat sightings, Gemini check against the catalogue |
-| **AI room assistant** (LLM, structured output) | [`backend/controllers/assistantController.js`](backend/controllers/assistantController.js), [`backend/utils/gemini.js`](backend/utils/gemini.js) | Gemini replies forced into a JSON schema, checked against the app's catalogue, model fallback and time limits |
-| ↳ in the app | [`frontend/src/utils/promptRoom.js`](frontend/src/utils/promptRoom.js), [`frontend/src/components/AiChatPanel.jsx`](frontend/src/components/AiChatPanel.jsx) | Turns the AI's choices into legal positions with the placement rules; chat with Apply/Undo |
-| **Tests** | [`frontend/tests/`](frontend/tests/) | 306 tests, including a full scan with a simulated AR session |
+| **AI room assistant** (LLM, structured output) | [`backend/controllers/assistantController.js`](backend/controllers/assistantController.js) | The prompt, the JSON schema, the 8 action types and the checks on every answer |
+| ↳ many models | [`backend/utils/llm/`](backend/utils/llm/): [`models.js`](backend/utils/llm/models.js), [`providers.js`](backend/utils/llm/providers.js), [`router.js`](backend/utils/llm/router.js) | ~15 models across 4 providers; a hedged race where the first answer that passes the checks wins; circuit breaker and time budget |
+| ↳ no-AI fallback | [`backend/utils/quickIntent.js`](backend/utils/quickIntent.js) | Rules for common requests when every model is down |
+| ↳ in the app | [`frontend/src/utils/promptRoom.js`](frontend/src/utils/promptRoom.js), [`frontend/src/components/AiChatPanel.jsx`](frontend/src/components/AiChatPanel.jsx) | Turns the AI's choices into legal positions with the placement rules (furniture, doors, windows, resizing); chat with Apply/Undo |
+| **Tests** | [`frontend/tests/`](frontend/tests/), [`backend/tests/`](backend/tests/) | 306 scanner tests including a full simulated scan; 90 for the assistant |
 
 ## About this repository
 
@@ -128,6 +134,7 @@ npm run dev              # http://localhost:5173 (use "npm run dev:wifi" to scan
 |---|---|
 | `DATABASE_URL` | Neon connection string (pooled) |
 | `JWT_SECRET` | a long random string |
-| `GEMINI_API_KEY` | Google AI Studio key (free tier) |
+| `GEMINI_API_KEY` | Google AI Studio key (free tier); assistant and camera guess |
+| `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `HF_TOKEN` | optional: more models for the assistant (free tiers). Any subset works |
 | `DEMO_MODE` | `true`: sign-up without email codes, demo login on |
 | `NODE_ENV` | `production` |
