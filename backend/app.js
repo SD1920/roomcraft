@@ -6,6 +6,7 @@ import { env }        from './config/env.js'
 import { globalLimiter, detectLimiter } from './middleware/rateLimiter.js'
 import { ensureSchema } from './config/db.js'
 import { handleDetect } from '../frontend/server/gemini_detect.js'
+import { modelChain } from './utils/gemini.js'
 
 import authRoutes        from './routes/authRoutes.js'
 import otpRoutes         from './routes/otpRoutes.js'
@@ -42,24 +43,28 @@ app.use(cors((req, cb) => {
 
 // ── Scanner "Guess from camera": one camera frame -> Gemini (key stays here)
 // Before the 1 MB JSON limit below: a camera frame can be a few MB.
-// The fast model first (about 2 s); every attempt is capped so the whole call
-// ends well inside the serverless function's 60 s limit even when Gemini is busy.
+// Same model chain as the assistant (utils/gemini.js). Every attempt is capped
+// so the whole call ends well inside the serverless function's 60 s limit.
+// A too-slow attempt or a retired model (404) is handed back as "busy" (503),
+// so handleDetect moves on to the next model instead of giving up.
 const DETECT_BUDGET_MS = 45_000
-const DETECT_ATTEMPT_MS = 15_000
+const DETECT_ATTEMPT_MS = 12_000
+const busyReply = (why) => new Response(JSON.stringify({ error: { message: why } }), { status: 503 })
 app.post('/api/detect', detectLimiter, express.json({ limit: '4mb' }), async (req, res) => {
   const deadline = Date.now() + DETECT_BUDGET_MS
-  const timedFetch = (url, opts) => {
+  const timedFetch = async (url, opts) => {
     const left = deadline - Date.now()
-    if (left < 2_000) return Promise.reject(Object.assign(new Error('Gemini took too long. Try Detect again in a minute.'), { status: 504 }))
-    return fetch(url, { ...opts, signal: AbortSignal.timeout(Math.min(DETECT_ATTEMPT_MS, left)) })
+    if (left < 2_000) return busyReply('out of time')
+    try {
+      const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(Math.min(DETECT_ATTEMPT_MS, left)) })
+      return r.status === 404 ? busyReply('model not available') : r
+    } catch (e) {
+      return busyReply(e?.name === 'TimeoutError' ? 'too slow' : 'no connection')
+    }
   }
+  const [model, ...fallbackModels] = modelChain()
   try {
-    res.json(await handleDetect(req.body, {
-      apiKey: process.env.GEMINI_API_KEY,
-      model: 'gemini-flash-lite-latest',
-      fallbackModels: ['gemini-flash-latest'],
-      fetch: timedFetch,
-    }))
+    res.json(await handleDetect(req.body, { apiKey: process.env.GEMINI_API_KEY, model, fallbackModels, fetch: timedFetch }))
   } catch (e) {
     const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError'
     res.status(timedOut ? 504 : e.status || 500).json({ error: timedOut ? 'Gemini took too long. Try Detect again in a minute.' : e.message })

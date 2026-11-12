@@ -41,7 +41,7 @@ After a laptop restart only the database container needs starting again:
 | `CLIENT_URL` | frontend origin allowed by CORS | `http://localhost:5173` |
 | `MAX_AVATAR_SIZE` | bytes | `2097152` |
 | `GEMINI_API_KEY` | AI room assistant, optional ([aistudio.google.com](https://aistudio.google.com); free tier, no billing) | `AIza...` |
-| `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS` | optional; default `gemini-flash-lite-latest`, then `gemini-flash-latest` | |
+| `GEMINI_MODELS` | optional, comma-separated model chain tried in order (busy, rate-limited or retired models are skipped); default in `utils/gemini.js` | `gemini-3.1-flash-lite,gemini-flash-lite-latest` |
 
 `DATABASE_URL`, `JWT_SECRET` and `RESEND_API_KEY` are required: the server
 will not start without them. Never commit `.env` (add it to `.gitignore`); if
